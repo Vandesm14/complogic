@@ -1,183 +1,67 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
 
-type FlatBoolOps = Vec<(usize, BoolOp)>;
-type CompiledPins = HashMap<usize, (BoolOp, bool)>;
+#[derive(Debug, Clone)]
+enum Op {
+  Set(usize, bool),
+  Call(Call),
+  Alloc(usize),
+}
 
 #[derive(Debug, Clone)]
-enum BoolOp {
-  And(Box<BoolOp>, Box<BoolOp>),
-  Not(Box<BoolOp>),
-
-  Pin(usize),
-  Static(bool),
+enum Call {
+  And(usize, usize, usize),
+  Not(usize, usize),
 }
 
-impl BoolOp {
-  fn eval(&self, pins: &CompiledPins) -> bool {
-    match self {
-      Self::And(a, b) => {
-        let a = a.eval(pins);
-        let b = b.eval(pins);
-
-        a && b
-      }
-      Self::Not(a) => {
-        let a = a.eval(pins);
-
-        !a
-      }
-      Self::Pin(pin) => match pins.get(pin) {
-        Some((ops, _)) => ops.eval(pins),
-        None => false,
-      },
-      Self::Static(bool) => *bool,
-    }
-  }
-}
-
-#[derive(Debug)]
-struct Gate {
-  outputs: FlatBoolOps,
-}
+type Ops = Vec<Op>;
 
 #[derive(Debug)]
 struct Simulation {
-  /// All gates
-  gates: Vec<Gate>,
+  /// Registers
+  registers: Vec<bool>,
 
-  // TODO: Use a lifetime and reference the op
-  /// A list of pins and their compiled boolean operations
-  compiled_pins: CompiledPins,
+  /// A list of the ops
+  ops: Ops,
 }
 
 impl Simulation {
-  /// Step through the simulation once
-  fn step(&mut self) {
-    let new_compiled_pins = CompiledPins::from_iter(
-      self.compiled_pins.iter().map(|(id, (ops, _))| {
-        let op = ops.clone();
-        let result = op.eval(&self.compiled_pins);
-
-        (*id, (op, result))
-      }),
-    );
-
-    self.compiled_pins = new_compiled_pins;
-  }
-
-  /// Compiles the simulation
-  fn compile(&mut self) {
-    self.gates.iter().for_each(|gate| {
-      gate.outputs.iter().for_each(|(pin, op)| {
-        self.compiled_pins.insert(*pin, (op.clone(), false));
-      });
+  // TODO: give better name
+  /// Arbitrary run for right now
+  fn run(&mut self) {
+    self.ops.iter().for_each(|op| match *op {
+      Op::Call(ref call) => match *call {
+        Call::And(a, b, out) => {
+          let a = self.registers[a];
+          let b = self.registers[b];
+          self.registers[out] = a && b;
+        }
+        Call::Not(a, out) => {
+          let a = self.registers[a];
+          self.registers[out] = !a;
+        }
+      },
+      Op::Set(register, value) => self.registers[register] = value,
+      Op::Alloc(len) => self.registers = vec![false; len],
     });
   }
 }
 
 fn main() {
-  let and_gate = Gate {
-    outputs: vec![(
-      2,
-      BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
-    )],
-  };
-
-  let not_gate = Gate {
-    outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
-  };
-
   let mut simulation = Simulation {
-    gates: vec![and_gate, not_gate],
-    compiled_pins: CompiledPins::from_iter(vec![
-      (0, (BoolOp::Static(true), false)),
-      (1, (BoolOp::Static(true), false)),
-    ]),
+    registers: vec![false; 3],
+    ops: vec![
+      Op::Alloc(4),
+      Op::Set(0, true),
+      Op::Set(1, true),
+      Op::Call(Call::And(0, 1, 2)),
+      Op::Call(Call::Not(2, 3)),
+    ],
   };
 
-  simulation.compile();
-  println!("Compiled: {:#?}", simulation.compiled_pins);
+  simulation.run();
 
-  simulation.step();
-  println!("Step: {:#?}", simulation.compiled_pins);
+  println!("Simulation: {:?}", simulation);
 }
 
 #[cfg(test)]
-mod tests {
-  #[test]
-  fn and_and_not_gate() {
-    use super::*;
-    let and_gate = Gate {
-      outputs: vec![(
-        2,
-        BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
-      )],
-    };
-
-    let not_gate = Gate {
-      outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
-    };
-
-    let mut simulation = Simulation {
-      gates: vec![and_gate, not_gate],
-      compiled_pins: CompiledPins::from_iter(vec![
-        (0, (BoolOp::Static(true), false)),
-        (1, (BoolOp::Static(true), false)),
-      ]),
-    };
-
-    simulation.compile();
-    simulation.step();
-
-    // The output pin of the AND gate
-    let and_output = simulation.compiled_pins.get(&2);
-
-    // The output pin of the NOT gate
-    let not_output = simulation.compiled_pins.get(&3);
-
-    assert!(and_output.is_some());
-    assert!(not_output.is_some());
-
-    assert!(and_output.unwrap().1);
-    assert!(!not_output.unwrap().1);
-  }
-
-  #[test]
-  fn and_and_not_gate_and_false() {
-    use super::*;
-    let and_gate = Gate {
-      outputs: vec![(
-        2,
-        BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
-      )],
-    };
-
-    let not_gate = Gate {
-      outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
-    };
-
-    let mut simulation = Simulation {
-      gates: vec![and_gate, not_gate],
-      compiled_pins: CompiledPins::from_iter(vec![
-        (0, (BoolOp::Static(false), false)),
-        (1, (BoolOp::Static(true), false)),
-      ]),
-    };
-
-    simulation.compile();
-    simulation.step();
-
-    // The output pin of the AND gate
-    let and_output = simulation.compiled_pins.get(&2);
-
-    // The output pin of the NOT gate
-    let not_output = simulation.compiled_pins.get(&3);
-
-    assert!(and_output.is_some());
-    assert!(not_output.is_some());
-
-    assert!(!and_output.unwrap().1);
-    assert!(not_output.unwrap().1);
-  }
-}
+mod tests {}
