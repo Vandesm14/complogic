@@ -16,10 +16,10 @@ type Ops = Vec<Op>;
 
 #[derive(Debug)]
 struct Simulation {
-  /// Registers
+  /// Registers that note the inputs and outputs of logic gates
   registers: Vec<bool>,
 
-  /// A list of the ops
+  /// The ops to run on the registers
   ops: Ops,
 }
 
