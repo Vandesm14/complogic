@@ -5,11 +5,6 @@ type Pins = HashMap<usize, bool>;
 type FlatPins = Vec<(usize, bool)>;
 
 #[derive(Debug)]
-enum EvalError {
-  MissingPins { pins: Vec<usize> },
-}
-
-#[derive(Debug)]
 enum Gate {
   And {
     inputs: [usize; 2],
@@ -22,54 +17,26 @@ enum Gate {
 }
 
 impl Gate {
-  fn eval(&self, pins: &Pins) -> Result<FlatPins, EvalError> {
+  fn eval(&self, pins: &Pins) -> FlatPins {
     match self {
       Self::And { inputs, outputs } => {
-        let mut missing_pins: Vec<usize> = vec![];
         let [pin_a, pin_b] = inputs;
 
-        let a = match pins.get(pin_a) {
-          Some(a) => a,
-          None => {
-            missing_pins.push(*pin_a);
-            &false
-          }
-        };
-        let b = match pins.get(pin_b) {
-          Some(b) => b,
-          None => {
-            missing_pins.push(*pin_b);
-            &false
-          }
-        };
-
-        if !missing_pins.is_empty() {
-          return Err(EvalError::MissingPins { pins: missing_pins });
-        }
+        let a = pins.get(pin_a).unwrap_or(&false);
+        let b = pins.get(pin_b).unwrap_or(&false);
 
         let result = *a && *b;
 
-        Ok(vec![(outputs[0], result)])
+        vec![(outputs[0], result)]
       }
       Self::Not { inputs, outputs } => {
-        let mut missing_pins: Vec<usize> = vec![];
         let pin_a = &inputs[0];
 
-        let a = match pins.get(pin_a) {
-          Some(a) => a,
-          None => {
-            missing_pins.push(*pin_a);
-            &false
-          }
-        };
-
-        if !missing_pins.is_empty() {
-          return Err(EvalError::MissingPins { pins: missing_pins });
-        }
+        let a = pins.get(pin_a).unwrap_or(&false);
 
         let result = !*a;
 
-        Ok(vec![(outputs[0], result)])
+        vec![(outputs[0], result)]
       }
     }
   }
@@ -91,12 +58,10 @@ impl Simulation {
       // Eval the current gate
       let result = gate.eval(&self.pins);
 
-      if let Ok(result) = result {
-        // Update each pin in the map
-        result.iter().for_each(|(pin, val)| {
-          self.pins.insert(*pin, *val);
-        });
-      }
+      // Update each pin in the map
+      result.iter().for_each(|(pin, val)| {
+        self.pins.insert(*pin, *val);
+      });
     })
   }
 }
