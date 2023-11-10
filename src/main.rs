@@ -121,3 +121,60 @@ fn main() {
 
   println!("Pins: {:?}", simulation.pins);
 }
+
+#[cfg(test)]
+mod tests {
+  #[test]
+  fn and_and_not_gate() {
+    use super::*;
+    let and_gate = Gate::And {
+      inputs: [0, 1],
+      outputs: [2],
+    };
+
+    let not_gate = Gate::Not {
+      inputs: [2],
+      outputs: [3],
+    };
+
+    let mut simulation = Simulation {
+      pins: Pins::from_iter(vec![(0, true), (1, true)]),
+      gates: vec![and_gate, not_gate],
+    };
+
+    simulation.step();
+
+    // The output pin of the AND gate
+    assert_eq!(simulation.pins.get(&2), Some(&true));
+
+    // The output pin of the NOT gate
+    assert_eq!(simulation.pins.get(&3), Some(&false));
+  }
+
+  #[test]
+  fn and_and_not_gate_and_false() {
+    use super::*;
+    let and_gate = Gate::And {
+      inputs: [0, 1],
+      outputs: [2],
+    };
+
+    let not_gate = Gate::Not {
+      inputs: [2],
+      outputs: [3],
+    };
+
+    let mut simulation = Simulation {
+      pins: Pins::from_iter(vec![(0, false), (1, true)]),
+      gates: vec![and_gate, not_gate],
+    };
+
+    simulation.step();
+
+    // The output pin of the AND gate
+    assert_eq!(simulation.pins.get(&2), Some(&false));
+
+    // The output pin of the NOT gate
+    assert_eq!(simulation.pins.get(&3), Some(&true));
+  }
+}
