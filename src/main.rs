@@ -12,33 +12,23 @@ type Ops = Vec<Op>;
 enum Gate {
   And(usize, usize),
   Not(usize),
+  Or(usize, usize),
 
   Static(bool),
 }
 
 impl Gate {
-  fn op(&self, out: usize) -> Op {
+  fn add_to(&self, out: usize, simulation: &mut Simulation) {
     match *self {
-      Self::And(a, b) => Op::And(a, b, out),
-      Self::Not(a) => Op::Not(a, out),
-      Self::Static(value) => Op::Set(out, value),
-    }
-  }
-}
-
-enum SuperGate {
-  Or(usize, usize),
-}
-
-impl SuperGate {
-  fn add(&self, simulation: &mut Simulation) -> usize {
-    match *self {
+      Self::And(a, b) => simulation.add_op(Op::And(a, b, out)),
+      Self::Not(a) => simulation.add_op(Op::Not(a, out)),
+      Self::Static(value) => simulation.add_op(Op::Set(out, value)),
       Self::Or(a, b) => {
         let not_a = simulation.add_gate(Gate::Not(a));
         let not_b = simulation.add_gate(Gate::Not(b));
         let and = simulation.add_gate(Gate::And(not_a, not_b));
 
-        simulation.add_gate(Gate::Not(and))
+        simulation.add_gate_with_out(Gate::Not(and), out);
       }
     }
   }
@@ -79,14 +69,18 @@ impl Simulation {
   /// Adds a gate to the simulation and returns the output register
   fn add_gate(&mut self, gate: Gate) -> usize {
     let out = self.alloc_one();
-    self.ops.push(gate.op(out));
+    gate.add_to(out, self);
 
     out
   }
 
   /// Adds a gate and uses an existing register as the output
   fn add_gate_with_out(&mut self, gate: Gate, out: usize) {
-    self.ops.push(gate.op(out));
+    gate.add_to(out, self);
+  }
+
+  fn add_op(&mut self, op: Op) {
+    self.ops.push(op);
   }
 }
 
@@ -203,7 +197,7 @@ mod tests {
     let a = simulation.add_gate(Gate::Static(true));
     let b = simulation.add_gate(Gate::Static(false));
 
-    let out = SuperGate::Or(a, b).add(&mut simulation);
+    let out = simulation.add_gate(Gate::Or(a, b));
 
     simulation.run();
     assert!(simulation.registers[out]);
@@ -219,7 +213,7 @@ mod tests {
     let a = simulation.add_gate(Gate::Static(false));
     let b = simulation.add_gate(Gate::Static(false));
 
-    let out = SuperGate::Or(a, b).add(&mut simulation);
+    let out = simulation.add_gate(Gate::Or(a, b));
 
     simulation.run();
     assert!(!simulation.registers[out]);
