@@ -4,6 +4,42 @@ use std::fmt::Debug;
 type Pins = HashMap<usize, bool>;
 type FlatPins = Vec<(usize, bool)>;
 
+type FlatBoolOps = Vec<(usize, BoolOp)>;
+
+enum BoolOp {
+  And(Box<BoolOp>, Box<BoolOp>),
+  Or(Box<BoolOp>, Box<BoolOp>),
+  Not(Box<BoolOp>),
+
+  Pin(usize),
+}
+
+impl BoolOp {
+  fn eval(&self, pins: &Pins) -> bool {
+    match self {
+      Self::And(a, b) => {
+        let a = a.eval(pins);
+        let b = b.eval(pins);
+
+        a && b
+      }
+      Self::Or(a, b) => {
+        let a = a.eval(pins);
+        let b = b.eval(pins);
+
+        a || b
+      }
+
+      Self::Not(a) => {
+        let a = a.eval(pins);
+
+        !a
+      }
+      Self::Pin(pin) => *pins.get(pin).unwrap_or(&false),
+    }
+  }
+}
+
 #[derive(Debug)]
 enum Gate {
   And {
@@ -17,24 +53,22 @@ enum Gate {
 }
 
 impl Gate {
-  fn eval(&self, pins: &Pins) -> FlatPins {
+  fn eval(&self, pins: &Pins) -> FlatBoolOps {
     match self {
       Self::And { inputs, outputs } => {
         let [pin_a, pin_b] = inputs;
 
-        let a = pins.get(pin_a).unwrap_or(&false);
-        let b = pins.get(pin_b).unwrap_or(&false);
-
-        let result = *a && *b;
+        let result = BoolOp::And(
+          Box::new(BoolOp::Pin(*pin_a)),
+          Box::new(BoolOp::Pin(*pin_b)),
+        );
 
         vec![(outputs[0], result)]
       }
       Self::Not { inputs, outputs } => {
         let pin_a = &inputs[0];
 
-        let a = pins.get(pin_a).unwrap_or(&false);
-
-        let result = !*a;
+        let result = BoolOp::Not(Box::new(BoolOp::Pin(*pin_a)));
 
         vec![(outputs[0], result)]
       }
@@ -60,7 +94,7 @@ impl Simulation {
 
       // Update each pin in the map
       result.iter().for_each(|(pin, val)| {
-        self.pins.insert(*pin, *val);
+        self.pins.insert(*pin, val.eval(&self.pins));
       });
     })
   }
