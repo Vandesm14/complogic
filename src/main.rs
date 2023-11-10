@@ -52,22 +52,44 @@ impl Gate {
   }
 }
 
+#[derive(Debug)]
+struct Simulation {
+  /// All inputs and outputs (pins)
+  pins: Pins,
+
+  /// All gates
+  gates: Vec<Gate>,
+}
+
+impl Simulation {
+  /// Step through the simulation once
+  fn step(&mut self) {
+    self.gates.iter().for_each(|gate| {
+      // Eval the current gate
+      let result = gate.eval(&self.pins);
+
+      if let Ok(result) = result {
+        // Update each pin in the map
+        result.iter().for_each(|(pin, val)| {
+          self.pins.insert(*pin, *val);
+        });
+      }
+    })
+  }
+}
+
 fn main() {
-  let mut pins: Pins = Pins::from_iter(vec![(0, true), (1, true)]);
   let and_gate = Gate::And {
     inputs: [0, 1],
     outputs: [2],
   };
 
-  let result = and_gate.eval(&pins);
+  let mut simulation = Simulation {
+    pins: Pins::from_iter(vec![(0, true), (1, true)]),
+    gates: vec![and_gate],
+  };
 
-  println!("Result: {:?}", result);
+  simulation.step();
 
-  if let Ok(result) = result {
-    result.iter().for_each(|(pin, val)| {
-      pins.insert(*pin, *val);
-    });
-  }
-
-  println!("Pins: {:?}", pins);
+  println!("Pins: {:?}", simulation.pins);
 }
