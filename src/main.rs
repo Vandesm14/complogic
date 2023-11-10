@@ -1,12 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-type Pins = HashMap<usize, bool>;
-type FlatPins = Vec<(usize, bool)>;
-
-type BoolOps = HashMap<usize, BoolOp>;
 type FlatBoolOps = Vec<(usize, BoolOp)>;
-
 type CompiledPins = HashMap<usize, (BoolOp, bool)>;
 
 #[derive(Debug, Clone)]
