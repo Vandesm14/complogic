@@ -7,7 +7,6 @@ type CompiledPins = HashMap<usize, (BoolOp, bool)>;
 #[derive(Debug, Clone)]
 enum BoolOp {
   And(Box<BoolOp>, Box<BoolOp>),
-  Or(Box<BoolOp>, Box<BoolOp>),
   Not(Box<BoolOp>),
 
   Pin(usize),
@@ -23,13 +22,6 @@ impl BoolOp {
 
         a && b
       }
-      Self::Or(a, b) => {
-        let a = a.eval(pins);
-        let b = b.eval(pins);
-
-        a || b
-      }
-
       Self::Not(a) => {
         let a = a.eval(pins);
 
@@ -46,7 +38,6 @@ impl BoolOp {
 
 #[derive(Debug)]
 struct Gate {
-  inputs: Vec<usize>,
   outputs: FlatBoolOps,
 }
 
@@ -64,7 +55,7 @@ impl Simulation {
   /// Step through the simulation once
   fn step(&mut self) {
     let new_compiled_pins = CompiledPins::from_iter(
-      self.compiled_pins.iter().map(|(id, (ops, bool))| {
+      self.compiled_pins.iter().map(|(id, (ops, _))| {
         let op = ops.clone();
         let result = op.eval(&self.compiled_pins);
 
@@ -87,7 +78,6 @@ impl Simulation {
 
 fn main() {
   let and_gate = Gate {
-    inputs: vec![0, 1],
     outputs: vec![(
       2,
       BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
@@ -95,7 +85,6 @@ fn main() {
   };
 
   let not_gate = Gate {
-    inputs: vec![2],
     outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
   };
 
@@ -120,7 +109,6 @@ mod tests {
   fn and_and_not_gate() {
     use super::*;
     let and_gate = Gate {
-      inputs: vec![0, 1],
       outputs: vec![(
         2,
         BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
@@ -128,7 +116,6 @@ mod tests {
     };
 
     let not_gate = Gate {
-      inputs: vec![2],
       outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
     };
 
@@ -152,15 +139,14 @@ mod tests {
     assert!(and_output.is_some());
     assert!(not_output.is_some());
 
-    assert_eq!(and_output.unwrap().1, true);
-    assert_eq!(not_output.unwrap().1, false);
+    assert!(and_output.unwrap().1);
+    assert!(!not_output.unwrap().1);
   }
 
   #[test]
   fn and_and_not_gate_and_false() {
     use super::*;
     let and_gate = Gate {
-      inputs: vec![0, 1],
       outputs: vec![(
         2,
         BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
@@ -168,7 +154,6 @@ mod tests {
     };
 
     let not_gate = Gate {
-      inputs: vec![2],
       outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
     };
 
@@ -192,7 +177,7 @@ mod tests {
     assert!(and_output.is_some());
     assert!(not_output.is_some());
 
-    assert_eq!(and_output.unwrap().1, false);
-    assert_eq!(not_output.unwrap().1, true);
+    assert!(!and_output.unwrap().1);
+    assert!(not_output.unwrap().1);
   }
 }
