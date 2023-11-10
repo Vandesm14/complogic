@@ -2,7 +2,6 @@ use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 enum Op {
-  Set(usize, bool),
   And(usize, usize, usize),
   Not(usize, usize),
 }
@@ -13,8 +12,6 @@ enum Gate {
   And(usize, usize),
   Not(usize),
   Or(usize, usize),
-
-  Static(bool),
 }
 
 impl Gate {
@@ -22,7 +19,6 @@ impl Gate {
     match *self {
       Self::And(a, b) => simulation.add_op(Op::And(a, b, out)),
       Self::Not(a) => simulation.add_op(Op::Not(a, out)),
-      Self::Static(value) => simulation.add_op(Op::Set(out, value)),
       Self::Or(a, b) => {
         let not_a = simulation.add_gate(Gate::Not(a));
         let not_b = simulation.add_gate(Gate::Not(b));
@@ -80,7 +76,6 @@ impl Simulation {
         let a = self.registers[a];
         self.registers[out] = !a;
       }
-      Op::Set(register, value) => self.registers[register] = value,
     });
   }
 
@@ -127,8 +122,8 @@ mod tests {
   #[test]
   fn op_and() {
     let mut simulation = Simulation {
-      registers: vec![false; 3],
-      ops: vec![Op::Set(0, true), Op::Set(1, true), Op::And(0, 1, 2)],
+      registers: vec![true, true, false],
+      ops: vec![Op::And(0, 1, 2)],
       immediate_count: 0,
     };
 
@@ -139,8 +134,8 @@ mod tests {
   #[test]
   fn op_and_false() {
     let mut simulation = Simulation {
-      registers: vec![false; 3],
-      ops: vec![Op::Set(0, true), Op::Set(1, false), Op::And(0, 1, 2)],
+      registers: vec![true, false, false],
+      ops: vec![Op::And(0, 1, 2)],
       immediate_count: 0,
     };
 
@@ -151,8 +146,8 @@ mod tests {
   #[test]
   fn op_not() {
     let mut simulation = Simulation {
-      registers: vec![false; 2],
-      ops: vec![Op::Set(0, true), Op::Not(0, 1)],
+      registers: vec![true, false],
+      ops: vec![Op::Not(0, 1)],
       immediate_count: 0,
     };
 
@@ -163,8 +158,8 @@ mod tests {
   #[test]
   fn op_not_false() {
     let mut simulation = Simulation {
-      registers: vec![false; 2],
-      ops: vec![Op::Set(0, false), Op::Not(0, 1)],
+      registers: vec![false, false],
+      ops: vec![Op::Not(0, 1)],
       immediate_count: 0,
     };
 
