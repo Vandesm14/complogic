@@ -26,6 +26,24 @@ impl Gate {
   }
 }
 
+enum SuperGate {
+  Or(usize, usize),
+}
+
+impl SuperGate {
+  fn add(&self, simulation: &mut Simulation) -> usize {
+    match *self {
+      Self::Or(a, b) => {
+        let not_a = simulation.add_gate(Gate::Not(a));
+        let not_b = simulation.add_gate(Gate::Not(b));
+        let and = simulation.add_gate(Gate::And(not_a, not_b));
+
+        simulation.add_gate(Gate::Not(and))
+      }
+    }
+  }
+}
+
 #[derive(Debug)]
 struct Simulation {
   /// Registers that note the inputs and outputs of logic gates
@@ -140,7 +158,7 @@ mod tests {
   #[test]
   fn add_gate() {
     let mut simulation = Simulation {
-      registers: vec![false; 3],
+      registers: vec![],
       ops: vec![],
     };
 
@@ -157,7 +175,7 @@ mod tests {
   #[test]
   fn add_gate_with_out() {
     let mut simulation = Simulation {
-      registers: vec![false; 3],
+      registers: vec![],
       ops: vec![],
     };
 
@@ -173,5 +191,37 @@ mod tests {
 
     simulation.run();
     assert!(simulation.registers[a]);
+  }
+
+  #[test]
+  fn or_gate() {
+    let mut simulation = Simulation {
+      registers: vec![],
+      ops: vec![],
+    };
+
+    let a = simulation.add_gate(Gate::Static(true));
+    let b = simulation.add_gate(Gate::Static(false));
+
+    let out = SuperGate::Or(a, b).add(&mut simulation);
+
+    simulation.run();
+    assert!(simulation.registers[out]);
+  }
+
+  #[test]
+  fn or_gate_false() {
+    let mut simulation = Simulation {
+      registers: vec![],
+      ops: vec![],
+    };
+
+    let a = simulation.add_gate(Gate::Static(false));
+    let b = simulation.add_gate(Gate::Static(false));
+
+    let out = SuperGate::Or(a, b).add(&mut simulation);
+
+    simulation.run();
+    assert!(!simulation.registers[out]);
   }
 }
