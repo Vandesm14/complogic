@@ -41,19 +41,35 @@ struct Simulation {
 
   /// The ops to run on the registers
   ops: Ops,
+
+  /// The number of immediate values to allocate when running the simulation
+  immediate_count: usize,
 }
 
 impl Simulation {
   /// Creates a new simulation
-  fn new() -> Self {
+  fn new(immediate_count: usize) -> Self {
     Self {
-      registers: vec![],
+      registers: vec![false; immediate_count],
       ops: vec![],
+      immediate_count,
     }
   }
 
-  /// Runs the VM with the given ops
-  fn run(&mut self) {
+  /// Runs the VM with the given immediates
+  fn run(&mut self, immediates: &[bool]) {
+    if immediates.len() != self.immediate_count {
+      panic!(
+        "Expected {} immediates, got {}",
+        self.immediate_count,
+        immediates.len()
+      );
+    }
+
+    immediates.iter().enumerate().for_each(|(i, value)| {
+      self.registers[i] = *value;
+    });
+
     self.ops.iter().for_each(|op| match *op {
       Op::And(a, b, out) => {
         let a = self.registers[a];
@@ -93,15 +109,13 @@ impl Simulation {
 }
 
 fn main() {
-  let mut simulation = Simulation::new();
-
-  let a = simulation.add_gate(Gate::Static(true));
-  let b = simulation.add_gate(Gate::Static(false));
+  let mut simulation = Simulation::new(2);
+  let [a, b] = [0, 1];
 
   let out = simulation.add_gate(Gate::And(a, b));
   simulation.add_gate(Gate::Not(out));
 
-  simulation.run();
+  simulation.run(&[true, false]);
   println!("Simulation: {:?}", simulation);
   println!("Static, Static, And, Not");
 }
@@ -115,9 +129,10 @@ mod tests {
     let mut simulation = Simulation {
       registers: vec![false; 3],
       ops: vec![Op::Set(0, true), Op::Set(1, true), Op::And(0, 1, 2)],
+      immediate_count: 0,
     };
 
-    simulation.run();
+    simulation.run(&[]);
     assert!(simulation.registers[2]);
   }
 
@@ -126,9 +141,10 @@ mod tests {
     let mut simulation = Simulation {
       registers: vec![false; 3],
       ops: vec![Op::Set(0, true), Op::Set(1, false), Op::And(0, 1, 2)],
+      immediate_count: 0,
     };
 
-    simulation.run();
+    simulation.run(&[]);
     assert!(!simulation.registers[2]);
   }
 
@@ -137,9 +153,10 @@ mod tests {
     let mut simulation = Simulation {
       registers: vec![false; 2],
       ops: vec![Op::Set(0, true), Op::Not(0, 1)],
+      immediate_count: 0,
     };
 
-    simulation.run();
+    simulation.run(&[]);
     assert!(!simulation.registers[1]);
   }
 
@@ -148,67 +165,64 @@ mod tests {
     let mut simulation = Simulation {
       registers: vec![false; 2],
       ops: vec![Op::Set(0, false), Op::Not(0, 1)],
+      immediate_count: 0,
     };
 
-    simulation.run();
+    simulation.run(&[]);
     assert!(simulation.registers[1]);
   }
 
   #[test]
   fn add_gate() {
-    let mut simulation = Simulation::new();
-
-    let a = simulation.add_gate(Gate::Static(true));
-    let b = simulation.add_gate(Gate::Static(true));
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
 
     let out = simulation.add_gate(Gate::And(a, b));
-    simulation.add_gate(Gate::Not(out));
 
-    simulation.run();
+    simulation.run(&[true, true]);
     assert!(simulation.registers[out]);
+
+    simulation.run(&[true, false]);
+    assert!(!simulation.registers[out]);
   }
 
   #[test]
   fn add_gate_with_out() {
-    let mut simulation = Simulation::new();
+    let mut simulation = Simulation::new(0);
 
     let a = simulation.alloc_one();
 
     simulation.add_gate_with_out(Gate::Not(a), a);
 
-    simulation.run();
+    simulation.run(&[]);
     assert!(simulation.registers[a]);
 
-    simulation.run();
+    simulation.run(&[]);
     assert!(!simulation.registers[a]);
 
-    simulation.run();
+    simulation.run(&[]);
     assert!(simulation.registers[a]);
   }
 
   #[test]
   fn or_gate() {
-    let mut simulation = Simulation::new();
-
-    let a = simulation.add_gate(Gate::Static(true));
-    let b = simulation.add_gate(Gate::Static(false));
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
 
     let out = simulation.add_gate(Gate::Or(a, b));
 
-    simulation.run();
+    simulation.run(&[true, false]);
     assert!(simulation.registers[out]);
   }
 
   #[test]
   fn or_gate_false() {
-    let mut simulation = Simulation::new();
-
-    let a = simulation.add_gate(Gate::Static(false));
-    let b = simulation.add_gate(Gate::Static(false));
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
 
     let out = simulation.add_gate(Gate::Or(a, b));
 
-    simulation.run();
+    simulation.run(&[false, false]);
     assert!(!simulation.registers[out]);
   }
 }
