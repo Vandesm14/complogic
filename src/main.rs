@@ -4,7 +4,6 @@ use std::fmt::Debug;
 enum Op {
   Set(usize, bool),
   Call(Call),
-  Alloc(usize),
 }
 
 #[derive(Debug, Clone)]
@@ -41,16 +40,14 @@ impl Simulation {
         }
       },
       Op::Set(register, value) => self.registers[register] = value,
-      Op::Alloc(len) => self.registers = vec![false; len],
     });
   }
 }
 
 fn main() {
   let mut simulation = Simulation {
-    registers: vec![false; 3],
+    registers: vec![false; 4],
     ops: vec![
-      Op::Alloc(4),
       Op::Set(0, true),
       Op::Set(1, true),
       Op::Call(Call::And(0, 1, 2)),
@@ -59,9 +56,62 @@ fn main() {
   };
 
   simulation.run();
-
   println!("Simulation: {:?}", simulation);
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+  use super::*;
+
+  #[test]
+  fn and_gate() {
+    let mut simulation = Simulation {
+      registers: vec![false; 3],
+      ops: vec![
+        Op::Set(0, true),
+        Op::Set(1, true),
+        Op::Call(Call::And(0, 1, 2)),
+      ],
+    };
+
+    simulation.run();
+    assert!(simulation.registers[2]);
+  }
+
+  #[test]
+  fn and_gate_false() {
+    let mut simulation = Simulation {
+      registers: vec![false; 3],
+      ops: vec![
+        Op::Set(0, true),
+        Op::Set(1, false),
+        Op::Call(Call::And(0, 1, 2)),
+      ],
+    };
+
+    simulation.run();
+    assert!(!simulation.registers[2]);
+  }
+
+  #[test]
+  fn not_gate() {
+    let mut simulation = Simulation {
+      registers: vec![false; 2],
+      ops: vec![Op::Set(0, true), Op::Call(Call::Not(0, 1))],
+    };
+
+    simulation.run();
+    assert!(!simulation.registers[1]);
+  }
+
+  #[test]
+  fn not_gate_false() {
+    let mut simulation = Simulation {
+      registers: vec![false; 2],
+      ops: vec![Op::Set(0, false), Op::Call(Call::Not(0, 1))],
+    };
+
+    simulation.run();
+    assert!(simulation.registers[1]);
+  }
+}
