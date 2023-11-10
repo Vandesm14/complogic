@@ -24,8 +24,7 @@ struct Simulation {
 }
 
 impl Simulation {
-  // TODO: give better name
-  /// Arbitrary run for right now
+  /// Runs the VM with the given ops
   fn run(&mut self) {
     self.ops.iter().for_each(|op| match *op {
       Op::Call(ref call) => match *call {
@@ -64,7 +63,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn and_gate() {
+  fn op_and() {
     let mut simulation = Simulation {
       registers: vec![false; 3],
       ops: vec![
@@ -79,7 +78,7 @@ mod tests {
   }
 
   #[test]
-  fn and_gate_false() {
+  fn op_and_false() {
     let mut simulation = Simulation {
       registers: vec![false; 3],
       ops: vec![
@@ -94,7 +93,7 @@ mod tests {
   }
 
   #[test]
-  fn not_gate() {
+  fn op_not() {
     let mut simulation = Simulation {
       registers: vec![false; 2],
       ops: vec![Op::Set(0, true), Op::Call(Call::Not(0, 1))],
@@ -105,7 +104,7 @@ mod tests {
   }
 
   #[test]
-  fn not_gate_false() {
+  fn op_not_false() {
     let mut simulation = Simulation {
       registers: vec![false; 2],
       ops: vec![Op::Set(0, false), Op::Call(Call::Not(0, 1))],
