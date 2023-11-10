@@ -16,7 +16,7 @@ enum BoolOp {
   Not(Box<BoolOp>),
 
   Pin(usize),
-  NoOp,
+  Static(bool),
 }
 
 impl BoolOp {
@@ -41,10 +41,10 @@ impl BoolOp {
         !a
       }
       Self::Pin(pin) => match pins.get(pin) {
-        Some((_, value)) => *value,
+        Some((ops, _)) => ops.eval(pins),
         None => false,
       },
-      Self::NoOp => false,
+      Self::Static(bool) => *bool,
     }
   }
 }
@@ -71,10 +71,7 @@ impl Simulation {
     let new_compiled_pins = CompiledPins::from_iter(
       self.compiled_pins.iter().map(|(id, (ops, bool))| {
         let op = ops.clone();
-        let result = match op {
-          BoolOp::NoOp => *bool,
-          _ => op.eval(&self.compiled_pins),
-        };
+        let result = op.eval(&self.compiled_pins);
 
         (*id, (op, result))
       }),
@@ -110,8 +107,8 @@ fn main() {
   let mut simulation = Simulation {
     gates: vec![and_gate, not_gate],
     compiled_pins: CompiledPins::from_iter(vec![
-      (0, (BoolOp::NoOp, true)),
-      (1, (BoolOp::NoOp, true)),
+      (0, (BoolOp::Static(true), false)),
+      (1, (BoolOp::Static(true), false)),
     ]),
   };
 
@@ -143,8 +140,8 @@ mod tests {
     let mut simulation = Simulation {
       gates: vec![and_gate, not_gate],
       compiled_pins: CompiledPins::from_iter(vec![
-        (0, (BoolOp::NoOp, true)),
-        (1, (BoolOp::NoOp, true)),
+        (0, (BoolOp::Static(true), false)),
+        (1, (BoolOp::Static(true), false)),
       ]),
     };
 
@@ -183,8 +180,8 @@ mod tests {
     let mut simulation = Simulation {
       gates: vec![and_gate, not_gate],
       compiled_pins: CompiledPins::from_iter(vec![
-        (0, (BoolOp::NoOp, false)),
-        (1, (BoolOp::NoOp, true)),
+        (0, (BoolOp::Static(false), false)),
+        (1, (BoolOp::Static(true), false)),
       ]),
     };
 
