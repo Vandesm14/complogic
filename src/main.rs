@@ -66,24 +66,17 @@ impl Simulation {
     self.registers.len() - 1
   }
 
+  /// Adds a gate to the simulation and returns the output register
   fn add_gate(&mut self, gate: Gate) -> usize {
-    match gate {
-      Gate::And(a, b) => {
-        let out = self.alloc_one();
-        self.ops.push(gate.op(out));
-        out
-      }
-      Gate::Not(a) => {
-        let out = self.alloc_one();
-        self.ops.push(gate.op(out));
-        out
-      }
-      Gate::Static(value) => {
-        let out = self.alloc_one();
-        self.ops.push(gate.op(out));
-        out
-      }
-    }
+    let out = self.alloc_one();
+    self.ops.push(gate.op(out));
+
+    out
+  }
+
+  /// Adds a gate and uses an existing register as the output
+  fn add_gate_with_out(&mut self, gate: Gate, out: usize) {
+    self.ops.push(gate.op(out));
   }
 }
 
