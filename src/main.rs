@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::rc::Rc;
 
 type Pins = HashMap<usize, bool>;
 
@@ -8,10 +7,6 @@ type Pins = HashMap<usize, bool>;
 enum Gate {
   And {
     inputs: [usize; 2],
-    outputs: [usize; 1],
-  },
-  Not {
-    inputs: [usize; 1],
     outputs: [usize; 1],
   },
 }
@@ -31,19 +26,8 @@ impl Gate {
 
         new_pins
       }
-      Self::Not { inputs, outputs } => {
-        todo!()
-      }
     }
   }
-}
-
-#[derive(Debug)]
-struct World {
-  pins: Pins,
-
-  /// The components within a world
-  components: Vec<Gate>,
 }
 
 fn main() {
