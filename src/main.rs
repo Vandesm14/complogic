@@ -44,6 +44,14 @@ struct Simulation {
 }
 
 impl Simulation {
+  /// Creates a new simulation
+  fn new() -> Self {
+    Self {
+      registers: vec![],
+      ops: vec![],
+    }
+  }
+
   /// Runs the VM with the given ops
   fn run(&mut self) {
     self.ops.iter().for_each(|op| match *op {
@@ -85,10 +93,7 @@ impl Simulation {
 }
 
 fn main() {
-  let mut simulation = Simulation {
-    registers: vec![],
-    ops: vec![],
-  };
+  let mut simulation = Simulation::new();
 
   let a = simulation.add_gate(Gate::Static(true));
   let b = simulation.add_gate(Gate::Static(false));
@@ -151,10 +156,7 @@ mod tests {
 
   #[test]
   fn add_gate() {
-    let mut simulation = Simulation {
-      registers: vec![],
-      ops: vec![],
-    };
+    let mut simulation = Simulation::new();
 
     let a = simulation.add_gate(Gate::Static(true));
     let b = simulation.add_gate(Gate::Static(true));
@@ -168,10 +170,7 @@ mod tests {
 
   #[test]
   fn add_gate_with_out() {
-    let mut simulation = Simulation {
-      registers: vec![],
-      ops: vec![],
-    };
+    let mut simulation = Simulation::new();
 
     let a = simulation.alloc_one();
 
@@ -189,10 +188,7 @@ mod tests {
 
   #[test]
   fn or_gate() {
-    let mut simulation = Simulation {
-      registers: vec![],
-      ops: vec![],
-    };
+    let mut simulation = Simulation::new();
 
     let a = simulation.add_gate(Gate::Static(true));
     let b = simulation.add_gate(Gate::Static(false));
@@ -205,10 +201,7 @@ mod tests {
 
   #[test]
   fn or_gate_false() {
-    let mut simulation = Simulation {
-      registers: vec![],
-      ops: vec![],
-    };
+    let mut simulation = Simulation::new();
 
     let a = simulation.add_gate(Gate::Static(false));
     let b = simulation.add_gate(Gate::Static(false));
