@@ -4,18 +4,23 @@ use std::fmt::Debug;
 type Pins = HashMap<usize, bool>;
 type FlatPins = Vec<(usize, bool)>;
 
+type BoolOps = HashMap<usize, BoolOp>;
 type FlatBoolOps = Vec<(usize, BoolOp)>;
 
+type CompiledPins = HashMap<usize, (BoolOp, bool)>;
+
+#[derive(Debug, Clone)]
 enum BoolOp {
   And(Box<BoolOp>, Box<BoolOp>),
   Or(Box<BoolOp>, Box<BoolOp>),
   Not(Box<BoolOp>),
 
   Pin(usize),
+  NoOp,
 }
 
 impl BoolOp {
-  fn eval(&self, pins: &Pins) -> bool {
+  fn eval(&self, pins: &CompiledPins) -> bool {
     match self {
       Self::And(a, b) => {
         let a = a.eval(pins);
@@ -35,90 +40,86 @@ impl BoolOp {
 
         !a
       }
-      Self::Pin(pin) => *pins.get(pin).unwrap_or(&false),
+      Self::Pin(pin) => match pins.get(pin) {
+        Some((_, value)) => *value,
+        None => false,
+      },
+      Self::NoOp => false,
     }
   }
 }
 
 #[derive(Debug)]
-enum Gate {
-  And {
-    inputs: [usize; 2],
-    outputs: [usize; 1],
-  },
-  Not {
-    inputs: [usize; 1],
-    outputs: [usize; 1],
-  },
-}
-
-impl Gate {
-  fn eval(&self, pins: &Pins) -> FlatBoolOps {
-    match self {
-      Self::And { inputs, outputs } => {
-        let [pin_a, pin_b] = inputs;
-
-        let result = BoolOp::And(
-          Box::new(BoolOp::Pin(*pin_a)),
-          Box::new(BoolOp::Pin(*pin_b)),
-        );
-
-        vec![(outputs[0], result)]
-      }
-      Self::Not { inputs, outputs } => {
-        let pin_a = &inputs[0];
-
-        let result = BoolOp::Not(Box::new(BoolOp::Pin(*pin_a)));
-
-        vec![(outputs[0], result)]
-      }
-    }
-  }
+struct Gate {
+  inputs: Vec<usize>,
+  outputs: FlatBoolOps,
 }
 
 #[derive(Debug)]
 struct Simulation {
-  /// All inputs and outputs (pins)
-  pins: Pins,
-
   /// All gates
   gates: Vec<Gate>,
+
+  // TODO: Use a lifetime and reference the op
+  /// A list of pins and their compiled boolean operations
+  compiled_pins: CompiledPins,
 }
 
 impl Simulation {
   /// Step through the simulation once
   fn step(&mut self) {
-    self.gates.iter().for_each(|gate| {
-      // Eval the current gate
-      let result = gate.eval(&self.pins);
+    let new_compiled_pins = CompiledPins::from_iter(
+      self.compiled_pins.iter().map(|(id, (ops, bool))| {
+        let op = ops.clone();
+        let result = match op {
+          BoolOp::NoOp => *bool,
+          _ => op.eval(&self.compiled_pins),
+        };
 
-      // Update each pin in the map
-      result.iter().for_each(|(pin, val)| {
-        self.pins.insert(*pin, val.eval(&self.pins));
+        (*id, (op, result))
+      }),
+    );
+
+    self.compiled_pins = new_compiled_pins;
+  }
+
+  /// Compiles the simulation
+  fn compile(&mut self) {
+    self.gates.iter().for_each(|gate| {
+      gate.outputs.iter().for_each(|(pin, op)| {
+        self.compiled_pins.insert(*pin, (op.clone(), false));
       });
-    })
+    });
   }
 }
 
 fn main() {
-  let and_gate = Gate::And {
-    inputs: [0, 1],
-    outputs: [2],
+  let and_gate = Gate {
+    inputs: vec![0, 1],
+    outputs: vec![(
+      2,
+      BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
+    )],
   };
 
-  let not_gate = Gate::Not {
-    inputs: [2],
-    outputs: [3],
+  let not_gate = Gate {
+    inputs: vec![2],
+    outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
   };
 
   let mut simulation = Simulation {
-    pins: Pins::from_iter(vec![(0, true), (1, true)]),
     gates: vec![and_gate, not_gate],
+    compiled_pins: CompiledPins::from_iter(vec![
+      (0, (BoolOp::NoOp, true)),
+      (1, (BoolOp::NoOp, true)),
+    ]),
   };
 
-  simulation.step();
+  simulation.compile();
+  println!("Compiled: {:#?}", simulation.compiled_pins);
 
-  println!("Pins: {:?}", simulation.pins);
+  simulation.step();
+  println!("Step: {:#?}", simulation.compiled_pins);
 }
 
 #[cfg(test)]
@@ -126,54 +127,80 @@ mod tests {
   #[test]
   fn and_and_not_gate() {
     use super::*;
-    let and_gate = Gate::And {
-      inputs: [0, 1],
-      outputs: [2],
+    let and_gate = Gate {
+      inputs: vec![0, 1],
+      outputs: vec![(
+        2,
+        BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
+      )],
     };
 
-    let not_gate = Gate::Not {
-      inputs: [2],
-      outputs: [3],
+    let not_gate = Gate {
+      inputs: vec![2],
+      outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
     };
 
     let mut simulation = Simulation {
-      pins: Pins::from_iter(vec![(0, true), (1, true)]),
       gates: vec![and_gate, not_gate],
+      compiled_pins: CompiledPins::from_iter(vec![
+        (0, (BoolOp::NoOp, true)),
+        (1, (BoolOp::NoOp, true)),
+      ]),
     };
 
+    simulation.compile();
     simulation.step();
 
     // The output pin of the AND gate
-    assert_eq!(simulation.pins.get(&2), Some(&true));
+    let and_output = simulation.compiled_pins.get(&2);
 
     // The output pin of the NOT gate
-    assert_eq!(simulation.pins.get(&3), Some(&false));
+    let not_output = simulation.compiled_pins.get(&3);
+
+    assert!(and_output.is_some());
+    assert!(not_output.is_some());
+
+    assert_eq!(and_output.unwrap().1, true);
+    assert_eq!(not_output.unwrap().1, false);
   }
 
   #[test]
   fn and_and_not_gate_and_false() {
     use super::*;
-    let and_gate = Gate::And {
-      inputs: [0, 1],
-      outputs: [2],
+    let and_gate = Gate {
+      inputs: vec![0, 1],
+      outputs: vec![(
+        2,
+        BoolOp::And(Box::new(BoolOp::Pin(0)), Box::new(BoolOp::Pin(1))),
+      )],
     };
 
-    let not_gate = Gate::Not {
-      inputs: [2],
-      outputs: [3],
+    let not_gate = Gate {
+      inputs: vec![2],
+      outputs: vec![(3, BoolOp::Not(Box::new(BoolOp::Pin(2))))],
     };
 
     let mut simulation = Simulation {
-      pins: Pins::from_iter(vec![(0, false), (1, true)]),
       gates: vec![and_gate, not_gate],
+      compiled_pins: CompiledPins::from_iter(vec![
+        (0, (BoolOp::NoOp, false)),
+        (1, (BoolOp::NoOp, true)),
+      ]),
     };
 
+    simulation.compile();
     simulation.step();
 
     // The output pin of the AND gate
-    assert_eq!(simulation.pins.get(&2), Some(&false));
+    let and_output = simulation.compiled_pins.get(&2);
 
     // The output pin of the NOT gate
-    assert_eq!(simulation.pins.get(&3), Some(&true));
+    let not_output = simulation.compiled_pins.get(&3);
+
+    assert!(and_output.is_some());
+    assert!(not_output.is_some());
+
+    assert_eq!(and_output.unwrap().1, false);
+    assert_eq!(not_output.unwrap().1, true);
   }
 }
