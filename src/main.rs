@@ -6,6 +6,7 @@ enum Op {
   Call(Call),
 }
 
+// TODO: merge these into the `Op` enum
 #[derive(Debug, Clone)]
 enum Call {
   And(usize, usize, usize),
@@ -13,6 +14,13 @@ enum Call {
 }
 
 type Ops = Vec<Op>;
+
+enum Gate {
+  And(usize, usize),
+  Not(usize),
+
+  Static(bool),
+}
 
 #[derive(Debug)]
 struct Simulation {
@@ -41,21 +49,61 @@ impl Simulation {
       Op::Set(register, value) => self.registers[register] = value,
     });
   }
+
+  fn add_gate(&mut self, gate: Gate) -> usize {
+    match gate {
+      Gate::And(a, b) => {
+        // Allocate an output register
+        self.registers.push(false);
+        let out = self.registers.len() - 1;
+
+        // Add the op
+        self.ops.push(Op::Call(Call::And(a, b, out)));
+
+        // Return the output register
+        out
+      }
+      Gate::Not(a) => {
+        // Allocate an output register
+        self.registers.push(false);
+        let out = self.registers.len() - 1;
+
+        // Add the op
+        self.ops.push(Op::Call(Call::Not(a, out)));
+
+        // Return the output register
+        out
+      }
+      Gate::Static(value) => {
+        // Allocate an output register
+        self.registers.push(value);
+        let out = self.registers.len() - 1;
+
+        // Add the op
+        self.ops.push(Op::Set(out, value));
+
+        // Return the output register
+        out
+      }
+    }
+  }
 }
 
 fn main() {
   let mut simulation = Simulation {
-    registers: vec![false; 4],
-    ops: vec![
-      Op::Set(0, true),
-      Op::Set(1, true),
-      Op::Call(Call::And(0, 1, 2)),
-      Op::Call(Call::Not(2, 3)),
-    ],
+    registers: vec![],
+    ops: vec![],
   };
+
+  let a = simulation.add_gate(Gate::Static(true));
+  let b = simulation.add_gate(Gate::Static(false));
+
+  let out = simulation.add_gate(Gate::And(a, b));
+  simulation.add_gate(Gate::Not(out));
 
   simulation.run();
   println!("Simulation: {:?}", simulation);
+  println!("Static, Static, And, Not");
 }
 
 #[cfg(test)]
