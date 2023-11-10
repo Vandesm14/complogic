@@ -22,6 +22,16 @@ enum Gate {
   Static(bool),
 }
 
+impl Gate {
+  fn op(&self, out: usize) -> Op {
+    match *self {
+      Self::And(a, b) => Op::Call(Call::And(a, b, out)),
+      Self::Not(a) => Op::Call(Call::Not(a, out)),
+      Self::Static(value) => Op::Set(out, value),
+    }
+  }
+}
+
 #[derive(Debug)]
 struct Simulation {
   /// Registers that note the inputs and outputs of logic gates
@@ -50,39 +60,27 @@ impl Simulation {
     });
   }
 
+  /// Allocates a new register and returns its index
+  fn alloc_one(&mut self) -> usize {
+    self.registers.push(false);
+    self.registers.len() - 1
+  }
+
   fn add_gate(&mut self, gate: Gate) -> usize {
     match gate {
       Gate::And(a, b) => {
-        // Allocate an output register
-        self.registers.push(false);
-        let out = self.registers.len() - 1;
-
-        // Add the op
-        self.ops.push(Op::Call(Call::And(a, b, out)));
-
-        // Return the output register
+        let out = self.alloc_one();
+        self.ops.push(gate.op(out));
         out
       }
       Gate::Not(a) => {
-        // Allocate an output register
-        self.registers.push(false);
-        let out = self.registers.len() - 1;
-
-        // Add the op
-        self.ops.push(Op::Call(Call::Not(a, out)));
-
-        // Return the output register
+        let out = self.alloc_one();
+        self.ops.push(gate.op(out));
         out
       }
       Gate::Static(value) => {
-        // Allocate an output register
-        self.registers.push(value);
-        let out = self.registers.len() - 1;
-
-        // Add the op
-        self.ops.push(Op::Set(out, value));
-
-        // Return the output register
+        let out = self.alloc_one();
+        self.ops.push(gate.op(out));
         out
       }
     }
