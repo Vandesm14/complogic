@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use complogic::{DLatch, Simulation};
+use complogic::{And, DLatch, Simulation};
 
 fn main() {
   let mut simulation = Simulation::new(2);
