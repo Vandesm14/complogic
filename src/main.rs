@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use complogic::{And, Gate, Simulation, Xor};
+use complogic::{And, Gate, Or, Simulation, Xor};
 
 #[derive(Debug)]
 struct HalfAdder {
@@ -26,6 +26,44 @@ impl Gate for HalfAdder {
     let mut ops: complogic::Ops = vec![];
     ops.extend(xor.create(incrementer));
     ops.extend(and.create(incrementer));
+
+    ops
+  }
+}
+
+#[derive(Debug)]
+struct FullAdder {
+  a: usize,
+  b: usize,
+  cin: usize,
+  s: usize,
+  cout: usize,
+}
+
+impl Gate for FullAdder {
+  fn create(&self, incrementer: &complogic::Incrementer) -> complogic::Ops {
+    let half_adder_1 = HalfAdder {
+      a: self.a,
+      b: self.b,
+      s: incrementer.next(),
+      c: incrementer.next(),
+    };
+    let half_adder_2 = HalfAdder {
+      a: half_adder_1.s,
+      b: self.cin,
+      s: self.s,
+      c: incrementer.next(),
+    };
+    let or = Or {
+      a: half_adder_1.c,
+      b: half_adder_2.c,
+      out: self.cout,
+    };
+
+    let mut ops: complogic::Ops = vec![];
+    ops.extend(half_adder_1.create(incrementer));
+    ops.extend(half_adder_2.create(incrementer));
+    ops.extend(or.create(incrementer));
 
     ops
   }
@@ -211,5 +249,50 @@ mod tests {
     simulation.run(&[true, true]);
     assert!(!simulation.registers[half_adder.s]);
     assert!(simulation.registers[half_adder.c]);
+  }
+
+  #[test]
+  fn full_adder() {
+    let mut simulation = Simulation::new(3);
+    let [a, b, cin] = [0, 1, 2];
+
+    let s = simulation.alloc();
+    let cout = simulation.alloc();
+
+    let full_adder = Rc::new(FullAdder { a, b, cin, s, cout });
+
+    simulation.compile(vec![full_adder.clone()]);
+
+    simulation.run(&[false, false, false]);
+    assert!(!simulation.registers[full_adder.s]);
+    assert!(!simulation.registers[full_adder.cout]);
+
+    simulation.run(&[false, false, true]);
+    assert!(simulation.registers[full_adder.s]);
+    assert!(!simulation.registers[full_adder.cout]);
+
+    simulation.run(&[false, true, false]);
+    assert!(simulation.registers[full_adder.s]);
+    assert!(!simulation.registers[full_adder.cout]);
+
+    simulation.run(&[false, true, true]);
+    assert!(!simulation.registers[full_adder.s]);
+    assert!(simulation.registers[full_adder.cout]);
+
+    simulation.run(&[true, false, false]);
+    assert!(simulation.registers[full_adder.s]);
+    assert!(!simulation.registers[full_adder.cout]);
+
+    simulation.run(&[true, false, true]);
+    assert!(!simulation.registers[full_adder.s]);
+    assert!(simulation.registers[full_adder.cout]);
+
+    simulation.run(&[true, true, false]);
+    assert!(!simulation.registers[full_adder.s]);
+    assert!(simulation.registers[full_adder.cout]);
+
+    simulation.run(&[true, true, true]);
+    assert!(simulation.registers[full_adder.s]);
+    assert!(simulation.registers[full_adder.cout]);
   }
 }
