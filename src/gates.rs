@@ -153,6 +153,87 @@ impl Gate for Xor {
 }
 
 #[derive(Debug)]
+pub struct RSLatch {
+  pub s: usize,
+  pub r: usize,
+  pub q: usize,
+}
+
+impl Gate for RSLatch {
+  fn create(&self, incrementer: &Incrementer) -> Ops {
+    let q_patch = incrementer.next();
+    let qn_patch = incrementer.next();
+
+    let nor_1 = Rc::new(Nor {
+      a: self.s,
+      b: qn_patch,
+      out: q_patch,
+    });
+    let nor_2 = Rc::new(Nor {
+      a: self.r,
+      b: q_patch,
+      out: qn_patch,
+    });
+
+    let or_q = Rc::new(Or {
+      a: qn_patch,
+      b: qn_patch,
+      out: self.q,
+    });
+
+    let mut ops: Ops = vec![];
+    ops.extend(nor_1.create(incrementer));
+    ops.extend(nor_2.create(incrementer));
+    ops.extend(or_q.create(incrementer));
+
+    ops
+  }
+}
+
+#[derive(Debug)]
+pub struct DLatch {
+  pub d: usize,
+  pub e: usize,
+  pub q: usize,
+}
+
+impl Gate for DLatch {
+  fn create(&self, incrementer: &Incrementer) -> Ops {
+    let not = Rc::new(Not {
+      a: self.d,
+      out: incrementer.next(),
+    });
+
+    let and_1 = Rc::new(And {
+      a: not.out,
+      b: self.e,
+      out: incrementer.next(),
+    });
+    let and_2 = Rc::new(And {
+      a: self.e,
+      b: self.d,
+      out: incrementer.next(),
+    });
+
+    // FIXME: It's strange that I have to flip which gates go into the S and R of the latch.
+    // The latch itself works fine, see the test for it, so I'm not sure why it's backwards here.
+    let rs_latch = RSLatch {
+      s: and_2.out,
+      r: and_1.out,
+      q: self.q,
+    };
+
+    let mut ops: Ops = vec![];
+    ops.extend(not.create(incrementer));
+    ops.extend(and_1.create(incrementer));
+    ops.extend(and_2.create(incrementer));
+    ops.extend(rs_latch.create(incrementer));
+
+    ops
+  }
+}
+
+#[derive(Debug)]
 pub struct HalfAdder {
   pub a: usize,
   pub b: usize,
@@ -336,45 +417,52 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [s, r] = [0, 1];
 
-    let q = simulation.alloc();
-    let qn = simulation.alloc();
+    let rslatch = Rc::new(RSLatch {
+      s,
+      r,
+      q: simulation.alloc(),
+    });
 
-    // simulation.add_gate_with_out(Gate::Nor(r, qn), q);
-    // simulation.add_gate_with_out(Gate::Nor(s, q), qn);
-
-    simulation.compile(vec![
-      Rc::new(Nor {
-        a: r,
-        b: qn,
-        out: q,
-      }),
-      Rc::new(Nor {
-        a: s,
-        b: q,
-        out: qn,
-      }),
-    ]);
+    simulation.compile(vec![rslatch.clone()]);
 
     // Reset the latch (due to the nature of logic, it starts as set when it's created)
-    simulation.run(&[false, true]);
-
     simulation.run(&[false, false]);
-    assert!(!simulation.registers[q]);
-    assert!(simulation.registers[qn]);
+    assert!(!simulation.registers[rslatch.q]);
 
-    // FIXME: I think it's incorrect for it to need 2 ticks to set?
     simulation.run(&[true, false]);
-    simulation.run(&[true, false]);
-    assert!(simulation.registers[q]);
-    assert!(!simulation.registers[qn]);
+    assert!(simulation.registers[rslatch.q]);
 
     simulation.run(&[false, true]);
-    assert!(!simulation.registers[q]);
-    assert!(simulation.registers[qn]);
+    assert!(!simulation.registers[rslatch.q]);
 
     simulation.run(&[true, true]);
-    assert!(!simulation.registers[q]);
-    assert!(!simulation.registers[qn]);
+    assert!(!simulation.registers[rslatch.q]);
+  }
+
+  #[test]
+  fn dlatch() {
+    let mut simulation = Simulation::new(2);
+    let [d, e] = [0, 1];
+
+    let dlatch = Rc::new(DLatch {
+      d,
+      e,
+      q: simulation.alloc(),
+    });
+
+    simulation.compile(vec![dlatch.clone()]);
+
+    simulation.run(&[false, false]);
+    assert!(!simulation.registers[dlatch.q]);
+
+    simulation.run(&[false, true]);
+    assert!(!simulation.registers[dlatch.q]);
+
+    simulation.run(&[true, false]);
+    assert!(!simulation.registers[dlatch.q]);
+
+    simulation.run(&[true, true]);
+    assert!(simulation.registers[dlatch.q]);
   }
 
   #[test]
