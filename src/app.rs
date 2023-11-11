@@ -12,8 +12,8 @@ use egui_node_graph::*;
   feature = "persistence",
   derive(serde::Serialize, serde::Deserialize)
 )]
-pub struct MyNodeData {
-  template: MyNodeTemplate,
+pub struct NodeData {
+  template: NodeTempl,
 }
 
 /// `DataType`s are what defines the possible range of connections when
@@ -24,7 +24,7 @@ pub struct MyNodeData {
   feature = "persistence",
   derive(serde::Serialize, serde::Deserialize)
 )]
-pub enum MyDataType {
+pub enum DataType {
   Scalar,
 }
 
@@ -40,11 +40,11 @@ pub enum MyDataType {
   feature = "persistence",
   derive(serde::Serialize, serde::Deserialize)
 )]
-pub enum MyValueType {
+pub enum ValueType {
   Scalar { value: bool },
 }
 
-impl Default for MyValueType {
+impl Default for ValueType {
   fn default() -> Self {
     // NOTE: This is just a dummy `Default` implementation. The library
     // requires it to circumvent some internal borrow checker issues.
@@ -52,14 +52,11 @@ impl Default for MyValueType {
   }
 }
 
-impl MyValueType {
+impl ValueType {
   /// Tries to downcast this value type to a scalar
   pub fn try_to_scalar(self) -> anyhow::Result<bool> {
-    if let MyValueType::Scalar { value } = self {
-      Ok(value)
-    } else {
-      anyhow::bail!("Invalid cast from {:?} to scalar", self)
-    }
+    let ValueType::Scalar { value } = self;
+    Ok(value)
   }
 }
 
@@ -71,7 +68,7 @@ impl MyValueType {
   feature = "persistence",
   derive(serde::Serialize, serde::Deserialize)
 )]
-pub enum MyNodeTemplate {
+pub enum NodeTempl {
   And,
   Immediate,
 }
@@ -94,34 +91,34 @@ pub enum MyResponse {
   feature = "persistence",
   derive(serde::Serialize, serde::Deserialize)
 )]
-pub struct MyGraphState {
+pub struct GraphState {
   pub active_node: Option<NodeId>,
 }
 
 // =========== Then, you need to implement some traits ============
 
 // A trait for the data types, to tell the library how to display them
-impl DataTypeTrait<MyGraphState> for MyDataType {
-  fn data_type_color(&self, _user_state: &mut MyGraphState) -> egui::Color32 {
+impl DataTypeTrait<GraphState> for DataType {
+  fn data_type_color(&self, _user_state: &mut GraphState) -> egui::Color32 {
     match self {
-      MyDataType::Scalar => egui::Color32::from_rgb(38, 109, 211),
+      DataType::Scalar => egui::Color32::from_rgb(38, 109, 211),
     }
   }
 
   fn name(&self) -> Cow<'_, str> {
     match self {
-      MyDataType::Scalar => Cow::Borrowed("scalar"),
+      DataType::Scalar => Cow::Borrowed("scalar"),
     }
   }
 }
 
 // A trait for the node kinds, which tells the library how to build new nodes
 // from the templates in the node finder
-impl NodeTemplateTrait for MyNodeTemplate {
-  type NodeData = MyNodeData;
-  type DataType = MyDataType;
-  type ValueType = MyValueType;
-  type UserState = MyGraphState;
+impl NodeTemplateTrait for NodeTempl {
+  type NodeData = NodeData;
+  type DataType = DataType;
+  type ValueType = ValueType;
+  type UserState = GraphState;
   type CategoryType = &'static str;
 
   fn node_finder_label(
@@ -129,8 +126,8 @@ impl NodeTemplateTrait for MyNodeTemplate {
     _user_state: &mut Self::UserState,
   ) -> Cow<'_, str> {
     Cow::Borrowed(match self {
-      MyNodeTemplate::And => "And Gate",
-      MyNodeTemplate::Immediate => "Immediate",
+      NodeTempl::And => "And Gate",
+      NodeTempl::Immediate => "Immediate",
     })
   }
 
@@ -140,8 +137,8 @@ impl NodeTemplateTrait for MyNodeTemplate {
     _user_state: &mut Self::UserState,
   ) -> Vec<&'static str> {
     match self {
-      MyNodeTemplate::Immediate => vec!["Tools"],
-      MyNodeTemplate::And => vec!["Gate"],
+      NodeTempl::Immediate => vec!["Tools"],
+      NodeTempl::And => vec!["Gate"],
     }
   }
 
@@ -152,7 +149,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
   }
 
   fn user_data(&self, _user_state: &mut Self::UserState) -> Self::NodeData {
-    MyNodeData { template: *self }
+    NodeData { template: *self }
   }
 
   fn build_node(
@@ -170,19 +167,19 @@ impl NodeTemplateTrait for MyNodeTemplate {
       graph.add_input_param(
         node_id,
         name.to_string(),
-        MyDataType::Scalar,
-        MyValueType::Scalar { value: false },
+        DataType::Scalar,
+        ValueType::Scalar { value: false },
         InputParamKind::ConnectionOrConstant,
         true,
       );
     };
 
     let output_scalar = |graph: &mut MyGraph, name: &str| {
-      graph.add_output_param(node_id, name.to_string(), MyDataType::Scalar);
+      graph.add_output_param(node_id, name.to_string(), DataType::Scalar);
     };
 
     match self {
-      MyNodeTemplate::And => {
+      NodeTempl::And => {
         // The first input param doesn't use the closure so we can comment
         // it in more detail.
         graph.add_input_param(
@@ -191,9 +188,9 @@ impl NodeTemplateTrait for MyNodeTemplate {
           // retrieve the value. Parameter names should be unique.
           "A".into(),
           // The data type for this input. In this case, a scalar
-          MyDataType::Scalar,
+          DataType::Scalar,
           // The value type for this input. We store zero as default
-          MyValueType::Scalar { value: false },
+          ValueType::Scalar { value: false },
           // The input parameter kind. This allows defining whether a
           // parameter accepts input connections and/or an inline
           // widget to set its value.
@@ -203,7 +200,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
         input_scalar(graph, "B");
         output_scalar(graph, "out");
       }
-      MyNodeTemplate::Immediate => {
+      NodeTempl::Immediate => {
         // The first input param doesn't use the closure so we can comment
         // it in more detail.
         graph.add_input_param(
@@ -212,9 +209,9 @@ impl NodeTemplateTrait for MyNodeTemplate {
           // retrieve the value. Parameter names should be unique.
           "A".into(),
           // The data type for this input. In this case, a scalar
-          MyDataType::Scalar,
+          DataType::Scalar,
           // The value type for this input. We store zero as default
-          MyValueType::Scalar { value: false },
+          ValueType::Scalar { value: false },
           // The input parameter kind. This allows defining whether a
           // parameter accepts input connections and/or an inline
           // widget to set its value.
@@ -227,34 +224,34 @@ impl NodeTemplateTrait for MyNodeTemplate {
   }
 }
 
-pub struct AllMyNodeTemplates;
-impl NodeTemplateIter for AllMyNodeTemplates {
-  type Item = MyNodeTemplate;
+pub struct AllNodeTempls;
+impl NodeTemplateIter for AllNodeTempls {
+  type Item = NodeTempl;
 
   fn all_kinds(&self) -> Vec<Self::Item> {
     // This function must return a list of node kinds, which the node finder
     // will use to display it to the user. Crates like strum can reduce the
     // boilerplate in enumerating all variants of an enum.
-    vec![MyNodeTemplate::And, MyNodeTemplate::Immediate]
+    vec![NodeTempl::And, NodeTempl::Immediate]
   }
 }
 
-impl WidgetValueTrait for MyValueType {
+impl WidgetValueTrait for ValueType {
   type Response = MyResponse;
-  type UserState = MyGraphState;
-  type NodeData = MyNodeData;
+  type UserState = GraphState;
+  type NodeData = NodeData;
   fn value_widget(
     &mut self,
     param_name: &str,
     _node_id: NodeId,
     ui: &mut egui::Ui,
-    _user_state: &mut MyGraphState,
-    _node_data: &MyNodeData,
+    _user_state: &mut GraphState,
+    _node_data: &NodeData,
   ) -> Vec<MyResponse> {
     // This trait is used to tell the library which UI to display for the
     // inline parameter widgets.
     match self {
-      MyValueType::Scalar { value } => {
+      ValueType::Scalar { value } => {
         ui.horizontal(|ui| {
           ui.label(param_name);
           ui.add(Checkbox::new(value, ""));
@@ -267,11 +264,11 @@ impl WidgetValueTrait for MyValueType {
 }
 
 impl UserResponseTrait for MyResponse {}
-impl NodeDataTrait for MyNodeData {
+impl NodeDataTrait for NodeData {
   type Response = MyResponse;
-  type UserState = MyGraphState;
-  type DataType = MyDataType;
-  type ValueType = MyValueType;
+  type UserState = GraphState;
+  type DataType = DataType;
+  type ValueType = ValueType;
 
   // This method will be called when drawing each node. This allows adding
   // extra ui elements inside the nodes. In this case, we create an "active"
@@ -282,9 +279,9 @@ impl NodeDataTrait for MyNodeData {
     &self,
     ui: &mut egui::Ui,
     node_id: NodeId,
-    _graph: &Graph<MyNodeData, MyDataType, MyValueType>,
+    _graph: &Graph<NodeData, DataType, ValueType>,
     user_state: &mut Self::UserState,
-  ) -> Vec<NodeResponse<MyResponse, MyNodeData>>
+  ) -> Vec<NodeResponse<MyResponse, NodeData>>
   where
     MyResponse: UserResponseTrait,
   {
@@ -321,14 +318,9 @@ impl NodeDataTrait for MyNodeData {
   }
 }
 
-type MyGraph = Graph<MyNodeData, MyDataType, MyValueType>;
-type MyEditorState = GraphEditorState<
-  MyNodeData,
-  MyDataType,
-  MyValueType,
-  MyNodeTemplate,
-  MyGraphState,
->;
+type MyGraph = Graph<NodeData, DataType, ValueType>;
+type MyEditorState =
+  GraphEditorState<NodeData, DataType, ValueType, NodeTempl, GraphState>;
 
 #[derive(Default)]
 pub struct NodeGraphExample {
@@ -336,7 +328,7 @@ pub struct NodeGraphExample {
   // custom types by specifying it as its generic parameters.
   state: MyEditorState,
 
-  user_state: MyGraphState,
+  user_state: GraphState,
 }
 
 #[cfg(feature = "persistence")]
@@ -353,7 +345,7 @@ impl NodeGraphExample {
       .unwrap_or_default();
     Self {
       state,
-      user_state: MyGraphState::default(),
+      user_state: GraphState::default(),
     }
   }
 }
@@ -377,7 +369,7 @@ impl eframe::App for NodeGraphExample {
       .show(ctx, |ui| {
         self.state.draw_graph_editor(
           ui,
-          AllMyNodeTemplates,
+          AllNodeTempls,
           &mut self.user_state,
           Vec::default(),
         )
@@ -418,14 +410,14 @@ impl eframe::App for NodeGraphExample {
   }
 }
 
-type OutputsCache = HashMap<OutputId, MyValueType>;
+type OutputsCache = HashMap<OutputId, ValueType>;
 
 /// Recursively evaluates all dependencies of this node, then evaluates the node itself.
 pub fn evaluate_node(
   graph: &MyGraph,
   node_id: NodeId,
   outputs_cache: &mut OutputsCache,
-) -> anyhow::Result<MyValueType> {
+) -> anyhow::Result<ValueType> {
   // To solve a similar problem as creating node types above, we define an
   // Evaluator as a convenience. It may be overkill for this small example,
   // but something like this makes the code much more readable when the
@@ -448,7 +440,7 @@ pub fn evaluate_node(
         node_id,
       }
     }
-    fn evaluate_input(&mut self, name: &str) -> anyhow::Result<MyValueType> {
+    fn evaluate_input(&mut self, name: &str) -> anyhow::Result<ValueType> {
       // Calling `evaluate_input` recursively evaluates other nodes in the
       // graph until the input value for a paramater has been computed.
       evaluate_input(self.graph, self.node_id, name, self.outputs_cache)
@@ -456,8 +448,8 @@ pub fn evaluate_node(
     fn populate_output(
       &mut self,
       name: &str,
-      value: MyValueType,
-    ) -> anyhow::Result<MyValueType> {
+      value: ValueType,
+    ) -> anyhow::Result<ValueType> {
       // After computing an output, we don't just return it, but we also
       // populate the outputs cache with it. This ensures the evaluation
       // only ever computes an output once.
@@ -480,20 +472,20 @@ pub fn evaluate_node(
       &mut self,
       name: &str,
       value: bool,
-    ) -> anyhow::Result<MyValueType> {
-      self.populate_output(name, MyValueType::Scalar { value })
+    ) -> anyhow::Result<ValueType> {
+      self.populate_output(name, ValueType::Scalar { value })
     }
   }
 
   let node = &graph[node_id];
   let mut evaluator = Evaluator::new(graph, outputs_cache, node_id);
   match node.user_data.template {
-    MyNodeTemplate::And => {
+    NodeTempl::And => {
       let a = evaluator.input_scalar("A")?;
       let b = evaluator.input_scalar("B")?;
       evaluator.output_scalar("out", a && b)
     }
-    MyNodeTemplate::Immediate => {
+    NodeTempl::Immediate => {
       let a = evaluator.input_scalar("A")?;
       evaluator.output_scalar("out", a)
     }
@@ -505,8 +497,8 @@ fn populate_output(
   outputs_cache: &mut OutputsCache,
   node_id: NodeId,
   param_name: &str,
-  value: MyValueType,
-) -> anyhow::Result<MyValueType> {
+  value: ValueType,
+) -> anyhow::Result<ValueType> {
   let output_id = graph[node_id].get_output(param_name)?;
   outputs_cache.insert(output_id, value);
   Ok(value)
@@ -518,7 +510,7 @@ fn evaluate_input(
   node_id: NodeId,
   param_name: &str,
   outputs_cache: &mut OutputsCache,
-) -> anyhow::Result<MyValueType> {
+) -> anyhow::Result<ValueType> {
   let input_id = graph[node_id].get_input(param_name)?;
 
   // The output of another node is connected.
