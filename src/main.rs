@@ -1,21 +1,21 @@
 use std::rc::Rc;
 
-use complogic::{And, Simulation};
+use complogic::{Or, Simulation};
 
 fn main() {
   let mut simulation = Simulation::new(2);
   let [a, b] = [0, 1];
 
-  let and = Rc::new(And {
+  let or = Rc::new(Or {
     a,
     b,
     out: simulation.incrementer.next(),
   });
 
-  simulation.compile(vec![and.clone()]);
+  simulation.compile(vec![or.clone()]);
   simulation.run(&[true, true]);
 
-  println!("And: {}", simulation.register(and.out));
+  println!("Or: {}", simulation.register(or.out));
   println!("Registers: {:?}", simulation.registers);
   println!("Ops: {:?}", simulation.ops);
 
@@ -48,118 +48,110 @@ fn main() {
   // println!("Nor: {:?}", nor.create(&incr));
 }
 
-// #[cfg(test)]
-// mod tests {
-//   use complogic::NandOp;
+#[cfg(test)]
+mod tests {
+  use complogic::{And, Incrementer, NandOp, Or};
 
-//   use super::*;
+  use super::*;
 
-//   #[test]
-//   fn op_nand() {
-//     let mut simulation = Simulation {
-//       registers: vec![false, false, false],
-//       ops: vec![NandOp(0, 1, 2)],
-//       immediate_count: 2,
-//       soucrmaps: vec![],
-//     };
+  #[test]
+  fn op_nand() {
+    let mut simulation = Simulation {
+      registers: vec![false, false, false],
+      ops: vec![NandOp(0, 1, 2)],
+      immediate_count: 2,
+      incrementer: Incrementer::set(2 - 1),
+    };
 
-//     simulation.run(&[false, false]);
-//     assert!(simulation.registers[2]);
+    simulation.run(&[false, false]);
+    assert!(simulation.registers[2]);
 
-//     simulation.run(&[true, false]);
-//     assert!(simulation.registers[2]);
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[2]);
 
-//     simulation.run(&[false, true]);
-//     assert!(simulation.registers[2]);
+    simulation.run(&[false, true]);
+    assert!(simulation.registers[2]);
 
-//     simulation.run(&[true, true]);
-//     assert!(!simulation.registers[2]);
-//   }
+    simulation.run(&[true, true]);
+    assert!(!simulation.registers[2]);
+  }
 
-//   #[test]
-//   fn add_gate() {
-//     let mut simulation = Simulation::new(2);
-//     let [a, b] = [0, 1];
+  #[test]
+  fn and_gate() {
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
 
-//     let out = simulation.add_gate(Gate::And(a, b));
+    let and = Rc::new(And {
+      a,
+      b,
+      out: simulation.incrementer.next(),
+    });
 
-//     simulation.run(&[true, true]);
-//     assert!(simulation.registers[out]);
+    simulation.compile(vec![and.clone()]);
 
-//     simulation.run(&[true, false]);
-//     assert!(!simulation.registers[out]);
-//   }
+    simulation.run(&[true, true]);
+    assert!(simulation.registers[and.out]);
 
-//   #[test]
-//   fn add_gate_with_out() {
-//     let mut simulation = Simulation::new(0);
+    simulation.run(&[true, false]);
+    assert!(!simulation.registers[and.out]);
+  }
 
-//     let a = simulation.alloc_one();
+  #[test]
+  fn or_gate() {
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
 
-//     simulation.add_gate_with_out(Gate::Not(a), a);
+    let or = Rc::new(Or {
+      a,
+      b,
+      out: simulation.incrementer.next(),
+    });
 
-//     simulation.run(&[]);
-//     assert!(simulation.registers[a]);
+    simulation.compile(vec![or.clone()]);
 
-//     simulation.run(&[]);
-//     assert!(!simulation.registers[a]);
+    simulation.run(&[false, false]);
+    assert!(!simulation.registers[or.out]);
 
-//     simulation.run(&[]);
-//     assert!(simulation.registers[a]);
-//   }
+    simulation.run(&[false, true]);
+    assert!(simulation.registers[or.out]);
 
-//   #[test]
-//   fn or_gate() {
-//     let mut simulation = Simulation::new(2);
-//     let [a, b] = [0, 1];
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[or.out]);
 
-//     let out = simulation.add_gate(Gate::Or(a, b));
+    simulation.run(&[true, true]);
+    assert!(simulation.registers[or.out]);
+  }
 
-//     simulation.run(&[true, false]);
-//     assert!(simulation.registers[out]);
-//   }
+  //   #[test]
+  //   fn rs_nor_latch() {
+  //     let mut simulation = Simulation::new(2);
+  //     let [s, r] = [0, 1];
 
-//   #[test]
-//   fn or_gate_false() {
-//     let mut simulation = Simulation::new(2);
-//     let [a, b] = [0, 1];
+  //     let q = simulation.alloc_one();
+  //     let qn = simulation.alloc_one();
 
-//     let out = simulation.add_gate(Gate::Or(a, b));
+  //     simulation.add_gate_with_out(Gate::Nor(r, qn), q);
+  //     simulation.add_gate_with_out(Gate::Nor(s, q), qn);
 
-//     simulation.run(&[false, false]);
-//     assert!(!simulation.registers[out]);
-//   }
+  //     // Reset the latch (due to the nature of logic, it starts as set when it's created)
+  //     simulation.run(&[false, true]);
 
-//   #[test]
-//   fn rs_nor_latch() {
-//     let mut simulation = Simulation::new(2);
-//     let [s, r] = [0, 1];
+  //     simulation.run(&[false, false]);
+  //     assert!(!simulation.registers[q]);
+  //     assert!(simulation.registers[qn]);
 
-//     let q = simulation.alloc_one();
-//     let qn = simulation.alloc_one();
+  //     // FIXME: I think it's incorrect for it to need 2 ticks to set?
+  //     simulation.run(&[true, false]);
+  //     simulation.run(&[true, false]);
+  //     assert!(simulation.registers[q]);
+  //     assert!(!simulation.registers[qn]);
 
-//     simulation.add_gate_with_out(Gate::Nor(r, qn), q);
-//     simulation.add_gate_with_out(Gate::Nor(s, q), qn);
+  //     simulation.run(&[false, true]);
+  //     assert!(!simulation.registers[q]);
+  //     assert!(simulation.registers[qn]);
 
-//     // Reset the latch (due to the nature of logic, it starts as set when it's created)
-//     simulation.run(&[false, true]);
-
-//     simulation.run(&[false, false]);
-//     assert!(!simulation.registers[q]);
-//     assert!(simulation.registers[qn]);
-
-//     // FIXME: I think it's incorrect for it to need 2 ticks to set?
-//     simulation.run(&[true, false]);
-//     simulation.run(&[true, false]);
-//     assert!(simulation.registers[q]);
-//     assert!(!simulation.registers[qn]);
-
-//     simulation.run(&[false, true]);
-//     assert!(!simulation.registers[q]);
-//     assert!(simulation.registers[qn]);
-
-//     simulation.run(&[true, true]);
-//     assert!(!simulation.registers[q]);
-//     assert!(!simulation.registers[qn]);
-//   }
-// }
+  //     simulation.run(&[true, true]);
+  //     assert!(!simulation.registers[q]);
+  //     assert!(!simulation.registers[qn]);
+  //   }
+}
