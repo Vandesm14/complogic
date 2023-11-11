@@ -1,28 +1,26 @@
-use std::rc::Rc;
+#![forbid(unsafe_code)]
+#![cfg_attr(not(debug_assertions), deny(warnings))] // Forbid warnings in release builds
+#![warn(clippy::all, rust_2018_idioms)]
 
-use complogic::{DLatch, Simulation};
+use complogic::NodeGraphExample;
 
+// When compiling natively:
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
-  let mut simulation = Simulation::new(2);
-  let [d, e] = [0, 1];
+  use eframe::egui::Visuals;
 
-  let dlatch = Rc::new(DLatch {
-    d,
-    e,
-    q: simulation.alloc(),
-  });
-
-  simulation.compile(vec![dlatch.clone()]);
-
-  simulation.run(&[false, false]);
-  println!("init: {}", simulation.registers[dlatch.q]);
-
-  simulation.run(&[false, true]);
-  println!("clk: {}", simulation.registers[dlatch.q]);
-
-  simulation.run(&[true, false]);
-  println!("set: {}", simulation.registers[dlatch.q]);
-
-  simulation.run(&[true, true]);
-  println!("clk + set: {}", simulation.registers[dlatch.q]);
+  eframe::run_native(
+    "Egui node graph example",
+    eframe::NativeOptions::default(),
+    Box::new(|cc| {
+      cc.egui_ctx.set_visuals(Visuals::dark());
+      #[cfg(feature = "persistence")]
+      {
+        Box::new(NodeGraphExample::new(cc))
+      }
+      #[cfg(not(feature = "persistence"))]
+      Box::<NodeGraphExample>::default()
+    }),
+  )
+  .expect("Failed to run native example");
 }
