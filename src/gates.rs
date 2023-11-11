@@ -219,6 +219,65 @@ impl Gate for FullAdder {
   }
 }
 
+#[derive(Debug)]
+
+pub struct FourBitAdder {
+  pub a1: usize,
+  pub a2: usize,
+  pub a3: usize,
+  pub a4: usize,
+  pub b1: usize,
+  pub b2: usize,
+  pub b3: usize,
+  pub b4: usize,
+  pub s1: usize,
+  pub s2: usize,
+  pub s3: usize,
+  pub s4: usize,
+  pub cout: usize,
+}
+
+impl Gate for FourBitAdder {
+  fn create(&self, incrementer: &Incrementer) -> Ops {
+    let full_adder_1 = Rc::new(FullAdder {
+      a: self.a1,
+      b: self.b1,
+      cin: incrementer.next(),
+      s: self.s1,
+      cout: incrementer.next(),
+    });
+    let full_adder_2 = Rc::new(FullAdder {
+      a: self.a2,
+      b: self.b2,
+      cin: full_adder_1.cout,
+      s: self.s2,
+      cout: incrementer.next(),
+    });
+    let full_adder_3 = Rc::new(FullAdder {
+      a: self.a3,
+      b: self.b3,
+      cin: full_adder_2.cout,
+      s: self.s3,
+      cout: incrementer.next(),
+    });
+    let full_adder_4 = Rc::new(FullAdder {
+      a: self.a4,
+      b: self.b4,
+      cin: full_adder_3.cout,
+      s: self.s4,
+      cout: self.cout,
+    });
+
+    let mut ops: Ops = vec![];
+    ops.extend(full_adder_1.create(incrementer));
+    ops.extend(full_adder_2.create(incrementer));
+    ops.extend(full_adder_3.create(incrementer));
+    ops.extend(full_adder_4.create(incrementer));
+
+    ops
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use std::rc::Rc;
@@ -390,5 +449,65 @@ mod tests {
     simulation.run(&[true, true, true]);
     assert!(simulation.registers[full_adder.s]);
     assert!(simulation.registers[full_adder.cout]);
+  }
+
+  fn number_to_bin_vec(number: usize, size: usize) -> Vec<bool> {
+    let mut vec = vec![];
+    let mut number = number;
+    while number > 0 {
+      vec.push(number % 2 == 1);
+      number /= 2;
+    }
+
+    while vec.len() < size {
+      vec.push(false);
+    }
+
+    vec.reverse();
+    vec
+  }
+
+  #[test]
+  fn four_bit_adder() {
+    let mut simulation = Simulation::new(8);
+    let [a4, a3, a2, a1, b4, b3, b2, b1] = [0, 1, 2, 3, 4, 5, 6, 7];
+
+    simulation.incrementer.next_n(5);
+    let [s5, s4, s3, s2, s1] = [8, 9, 10, 11, 12];
+
+    let four_bit_adder = Rc::new(FourBitAdder {
+      a1,
+      a2,
+      a3,
+      a4,
+      b1,
+      b2,
+      b3,
+      b4,
+      s1,
+      s2,
+      s3,
+      s4,
+      cout: s5,
+    });
+
+    simulation.compile(vec![four_bit_adder.clone()]);
+
+    for a in 0..0b1111 {
+      let bin_a = number_to_bin_vec(a, 4);
+
+      for b in 0..0b1111 {
+        let bin_b = number_to_bin_vec(b, 4);
+
+        let mut input = vec![];
+        input.extend(bin_a.clone());
+        input.extend(bin_b);
+
+        simulation.run(&input);
+
+        let bin_s = number_to_bin_vec(a + b, 5);
+        assert_eq!(bin_s, &simulation.registers[s5..=s1]);
+      }
+    }
   }
 }
