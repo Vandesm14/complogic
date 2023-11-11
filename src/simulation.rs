@@ -61,7 +61,7 @@ impl Simulation {
   /// Creates a new simulation
   pub fn new(immediate_count: usize) -> Self {
     Self {
-      registers: vec![false; immediate_count],
+      registers: vec![],
       ops: vec![],
       immediate_count,
       incrementer: Incrementer::set(immediate_count),
@@ -124,6 +124,7 @@ mod tests {
   use super::*;
 
   #[test]
+  /// Test the Nand operation and ensure that it works as expected
   fn op_nand() {
     let mut simulation = Simulation {
       registers: vec![false, false, false],
@@ -146,33 +147,43 @@ mod tests {
   }
 
   #[test]
+  /// Test that allocation increments properly and doesn't allocate any registers
   fn alloc_lazy_increment() {
     let mut simulation = Simulation::new(0);
-    assert_eq!(simulation.registers.len(), 0);
     assert_eq!(simulation.alloc(), 0);
     assert_eq!(simulation.alloc(), 1);
     assert_eq!(simulation.alloc(), 2);
+
+    // Ensure that no registers are actually created
+    assert_eq!(simulation.registers.len(), 0);
   }
 
   #[test]
+  /// Test that allocation increments plus the immediate count
   fn alloc_plus_immediates() {
     let mut simulation = Simulation::new(2);
     assert_eq!(simulation.alloc(), 2);
     assert_eq!(simulation.alloc(), 3);
     assert_eq!(simulation.alloc(), 4);
+
+    // Ensure that no registers are actually created
+    assert_eq!(simulation.registers.len(), 0);
   }
 
   #[test]
+  /// Test that the registers we allocate at compile time are the same as the registers we allocate
   fn alloc_all_on_compile() {
     let mut simulation = Simulation::new(2);
-    assert_eq!(simulation.registers.len(), 2);
 
+    // Two immediates = two registers allocated
     let reg_count = simulation.compile(vec![]);
     assert_eq!(reg_count, 2);
 
+    // Two immediates = the next index should be 2, then 3
     assert_eq!(simulation.alloc(), 2);
     assert_eq!(simulation.alloc(), 3);
 
+    // Two immediates plus our allocs, total register count is 4
     let reg_count = simulation.compile(vec![]);
     assert_eq!(reg_count, 4);
   }
