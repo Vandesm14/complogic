@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use eframe::egui::{self, DragValue, TextStyle};
+use eframe::egui::{self, Checkbox, TextStyle};
 use egui_node_graph::*;
 
 // ========= First, define your user data types =============
@@ -26,7 +26,6 @@ pub struct MyNodeData {
 )]
 pub enum MyDataType {
   Scalar,
-  Vec2,
 }
 
 /// In the graph, input parameters can optionally have a constant value. This
@@ -42,30 +41,20 @@ pub enum MyDataType {
   derive(serde::Serialize, serde::Deserialize)
 )]
 pub enum MyValueType {
-  Vec2 { value: egui::Vec2 },
-  Scalar { value: f32 },
+  Scalar { value: bool },
 }
 
 impl Default for MyValueType {
   fn default() -> Self {
     // NOTE: This is just a dummy `Default` implementation. The library
     // requires it to circumvent some internal borrow checker issues.
-    Self::Scalar { value: 0.0 }
+    Self::Scalar { value: false }
   }
 }
 
 impl MyValueType {
-  /// Tries to downcast this value type to a vector
-  pub fn try_to_vec2(self) -> anyhow::Result<egui::Vec2> {
-    if let MyValueType::Vec2 { value } = self {
-      Ok(value)
-    } else {
-      anyhow::bail!("Invalid cast from {:?} to vec2", self)
-    }
-  }
-
   /// Tries to downcast this value type to a scalar
-  pub fn try_to_scalar(self) -> anyhow::Result<f32> {
+  pub fn try_to_scalar(self) -> anyhow::Result<bool> {
     if let MyValueType::Scalar { value } = self {
       Ok(value)
     } else {
@@ -83,13 +72,8 @@ impl MyValueType {
   derive(serde::Serialize, serde::Deserialize)
 )]
 pub enum MyNodeTemplate {
-  MakeScalar,
-  AddScalar,
-  SubtractScalar,
-  MakeVector,
-  AddVector,
-  SubtractVector,
-  VectorTimesScalar,
+  And,
+  Immediate,
 }
 
 /// The response type is used to encode side-effects produced when drawing a
@@ -121,14 +105,12 @@ impl DataTypeTrait<MyGraphState> for MyDataType {
   fn data_type_color(&self, _user_state: &mut MyGraphState) -> egui::Color32 {
     match self {
       MyDataType::Scalar => egui::Color32::from_rgb(38, 109, 211),
-      MyDataType::Vec2 => egui::Color32::from_rgb(238, 207, 109),
     }
   }
 
   fn name(&self) -> Cow<'_, str> {
     match self {
       MyDataType::Scalar => Cow::Borrowed("scalar"),
-      MyDataType::Vec2 => Cow::Borrowed("2d vector"),
     }
   }
 }
@@ -147,13 +129,8 @@ impl NodeTemplateTrait for MyNodeTemplate {
     _user_state: &mut Self::UserState,
   ) -> Cow<'_, str> {
     Cow::Borrowed(match self {
-      MyNodeTemplate::MakeScalar => "New scalar",
-      MyNodeTemplate::AddScalar => "Scalar add",
-      MyNodeTemplate::SubtractScalar => "Scalar subtract",
-      MyNodeTemplate::MakeVector => "New vector",
-      MyNodeTemplate::AddVector => "Vector add",
-      MyNodeTemplate::SubtractVector => "Vector subtract",
-      MyNodeTemplate::VectorTimesScalar => "Vector times scalar",
+      MyNodeTemplate::And => "And Gate",
+      MyNodeTemplate::Immediate => "Immediate",
     })
   }
 
@@ -163,13 +140,8 @@ impl NodeTemplateTrait for MyNodeTemplate {
     _user_state: &mut Self::UserState,
   ) -> Vec<&'static str> {
     match self {
-      MyNodeTemplate::MakeScalar
-      | MyNodeTemplate::AddScalar
-      | MyNodeTemplate::SubtractScalar => vec!["Scalar"],
-      MyNodeTemplate::MakeVector
-      | MyNodeTemplate::AddVector
-      | MyNodeTemplate::SubtractVector => vec!["Vector"],
-      MyNodeTemplate::VectorTimesScalar => vec!["Vector", "Scalar"],
+      MyNodeTemplate::Immediate => vec!["Tools"],
+      MyNodeTemplate::And => vec!["Gate"],
     }
   }
 
@@ -199,19 +171,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
         node_id,
         name.to_string(),
         MyDataType::Scalar,
-        MyValueType::Scalar { value: 0.0 },
-        InputParamKind::ConnectionOrConstant,
-        true,
-      );
-    };
-    let input_vector = |graph: &mut MyGraph, name: &str| {
-      graph.add_input_param(
-        node_id,
-        name.to_string(),
-        MyDataType::Vec2,
-        MyValueType::Vec2 {
-          value: egui::vec2(0.0, 0.0),
-        },
+        MyValueType::Scalar { value: false },
         InputParamKind::ConnectionOrConstant,
         true,
       );
@@ -220,12 +180,9 @@ impl NodeTemplateTrait for MyNodeTemplate {
     let output_scalar = |graph: &mut MyGraph, name: &str| {
       graph.add_output_param(node_id, name.to_string(), MyDataType::Scalar);
     };
-    let output_vector = |graph: &mut MyGraph, name: &str| {
-      graph.add_output_param(node_id, name.to_string(), MyDataType::Vec2);
-    };
 
     match self {
-      MyNodeTemplate::AddScalar => {
+      MyNodeTemplate::And => {
         // The first input param doesn't use the closure so we can comment
         // it in more detail.
         graph.add_input_param(
@@ -236,7 +193,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
           // The data type for this input. In this case, a scalar
           MyDataType::Scalar,
           // The value type for this input. We store zero as default
-          MyValueType::Scalar { value: 0.0 },
+          MyValueType::Scalar { value: false },
           // The input parameter kind. This allows defining whether a
           // parameter accepts input connections and/or an inline
           // widget to set its value.
@@ -246,33 +203,24 @@ impl NodeTemplateTrait for MyNodeTemplate {
         input_scalar(graph, "B");
         output_scalar(graph, "out");
       }
-      MyNodeTemplate::SubtractScalar => {
-        input_scalar(graph, "A");
-        input_scalar(graph, "B");
-        output_scalar(graph, "out");
-      }
-      MyNodeTemplate::VectorTimesScalar => {
-        input_scalar(graph, "scalar");
-        input_vector(graph, "vector");
-        output_vector(graph, "out");
-      }
-      MyNodeTemplate::AddVector => {
-        input_vector(graph, "v1");
-        input_vector(graph, "v2");
-        output_vector(graph, "out");
-      }
-      MyNodeTemplate::SubtractVector => {
-        input_vector(graph, "v1");
-        input_vector(graph, "v2");
-        output_vector(graph, "out");
-      }
-      MyNodeTemplate::MakeVector => {
-        input_scalar(graph, "x");
-        input_scalar(graph, "y");
-        output_vector(graph, "out");
-      }
-      MyNodeTemplate::MakeScalar => {
-        input_scalar(graph, "value");
+      MyNodeTemplate::Immediate => {
+        // The first input param doesn't use the closure so we can comment
+        // it in more detail.
+        graph.add_input_param(
+          node_id,
+          // This is the name of the parameter. Can be later used to
+          // retrieve the value. Parameter names should be unique.
+          "A".into(),
+          // The data type for this input. In this case, a scalar
+          MyDataType::Scalar,
+          // The value type for this input. We store zero as default
+          MyValueType::Scalar { value: false },
+          // The input parameter kind. This allows defining whether a
+          // parameter accepts input connections and/or an inline
+          // widget to set its value.
+          InputParamKind::ConnectionOrConstant,
+          true,
+        );
         output_scalar(graph, "out");
       }
     }
@@ -287,15 +235,7 @@ impl NodeTemplateIter for AllMyNodeTemplates {
     // This function must return a list of node kinds, which the node finder
     // will use to display it to the user. Crates like strum can reduce the
     // boilerplate in enumerating all variants of an enum.
-    vec![
-      MyNodeTemplate::MakeScalar,
-      MyNodeTemplate::MakeVector,
-      MyNodeTemplate::AddScalar,
-      MyNodeTemplate::SubtractScalar,
-      MyNodeTemplate::AddVector,
-      MyNodeTemplate::SubtractVector,
-      MyNodeTemplate::VectorTimesScalar,
-    ]
+    vec![MyNodeTemplate::And, MyNodeTemplate::Immediate]
   }
 }
 
@@ -314,19 +254,10 @@ impl WidgetValueTrait for MyValueType {
     // This trait is used to tell the library which UI to display for the
     // inline parameter widgets.
     match self {
-      MyValueType::Vec2 { value } => {
-        ui.label(param_name);
-        ui.horizontal(|ui| {
-          ui.label("x");
-          ui.add(DragValue::new(&mut value.x));
-          ui.label("y");
-          ui.add(DragValue::new(&mut value.y));
-        });
-      }
       MyValueType::Scalar { value } => {
         ui.horizontal(|ui| {
           ui.label(param_name);
-          ui.add(DragValue::new(value));
+          ui.add(Checkbox::new(value, ""));
         });
       }
     }
@@ -542,23 +473,13 @@ pub fn evaluate_node(
       // the graphs, you can come up with your own evaluation semantics!
       populate_output(self.graph, self.outputs_cache, self.node_id, name, value)
     }
-    fn input_vector(&mut self, name: &str) -> anyhow::Result<egui::Vec2> {
-      self.evaluate_input(name)?.try_to_vec2()
-    }
-    fn input_scalar(&mut self, name: &str) -> anyhow::Result<f32> {
+    fn input_scalar(&mut self, name: &str) -> anyhow::Result<bool> {
       self.evaluate_input(name)?.try_to_scalar()
-    }
-    fn output_vector(
-      &mut self,
-      name: &str,
-      value: egui::Vec2,
-    ) -> anyhow::Result<MyValueType> {
-      self.populate_output(name, MyValueType::Vec2 { value })
     }
     fn output_scalar(
       &mut self,
       name: &str,
-      value: f32,
+      value: bool,
     ) -> anyhow::Result<MyValueType> {
       self.populate_output(name, MyValueType::Scalar { value })
     }
@@ -567,39 +488,14 @@ pub fn evaluate_node(
   let node = &graph[node_id];
   let mut evaluator = Evaluator::new(graph, outputs_cache, node_id);
   match node.user_data.template {
-    MyNodeTemplate::AddScalar => {
+    MyNodeTemplate::And => {
       let a = evaluator.input_scalar("A")?;
       let b = evaluator.input_scalar("B")?;
-      evaluator.output_scalar("out", a + b)
+      evaluator.output_scalar("out", a && b)
     }
-    MyNodeTemplate::SubtractScalar => {
+    MyNodeTemplate::Immediate => {
       let a = evaluator.input_scalar("A")?;
-      let b = evaluator.input_scalar("B")?;
-      evaluator.output_scalar("out", a - b)
-    }
-    MyNodeTemplate::VectorTimesScalar => {
-      let scalar = evaluator.input_scalar("scalar")?;
-      let vector = evaluator.input_vector("vector")?;
-      evaluator.output_vector("out", vector * scalar)
-    }
-    MyNodeTemplate::AddVector => {
-      let v1 = evaluator.input_vector("v1")?;
-      let v2 = evaluator.input_vector("v2")?;
-      evaluator.output_vector("out", v1 + v2)
-    }
-    MyNodeTemplate::SubtractVector => {
-      let v1 = evaluator.input_vector("v1")?;
-      let v2 = evaluator.input_vector("v2")?;
-      evaluator.output_vector("out", v1 - v2)
-    }
-    MyNodeTemplate::MakeVector => {
-      let x = evaluator.input_scalar("x")?;
-      let y = evaluator.input_scalar("y")?;
-      evaluator.output_vector("out", egui::vec2(x, y))
-    }
-    MyNodeTemplate::MakeScalar => {
-      let value = evaluator.input_scalar("value")?;
-      evaluator.output_scalar("out", value)
+      evaluator.output_scalar("out", a)
     }
   }
 }
