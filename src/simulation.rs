@@ -8,7 +8,7 @@ pub type Ops = Vec<NandOp>;
 pub struct SourceMap {
   pub name: String,
   pub inputs: Vec<usize>,
-  pub output: usize,
+  pub outputs: Vec<usize>,
 }
 
 impl SourceMap {
@@ -19,10 +19,13 @@ impl SourceMap {
       .map(|input| simulation.registers[*input])
       .collect::<Vec<_>>();
 
-    println!(
-      "{}: {:?} -> {}",
-      self.name, inputs, simulation.registers[self.output]
-    );
+    let outputs = self
+      .outputs
+      .iter()
+      .map(|output| simulation.registers[*output])
+      .collect::<Vec<_>>();
+
+    println!("{}: {:?} -> {:?}", self.name, inputs, outputs);
   }
 }
 
@@ -81,28 +84,39 @@ impl Simulation {
     self.registers.len() - 1
   }
 
-  /// Adds a gate to the simulation and returns the output register
-  pub fn add_gate(&mut self, gate: Gate) -> usize {
-    let out = self.alloc_one();
-    gate.add_to(out, self, true);
+  /// Allocates n new registers and returns their indicies
+  pub fn alloc(&mut self, n: usize) -> Vec<usize> {
+    let mut out = vec![];
+
+    for _ in 0..n {
+      out.push(self.alloc_one());
+    }
 
     out
+  }
+
+  /// Adds a gate to the simulation and returns the output register
+  pub fn add_gate(&mut self, gate: &dyn GateLike) -> Vec<usize> {
+    let outs = self.alloc(gate.out_count());
+    gate.add_to(outs.clone(), self, true);
+
+    outs
   }
 
   /// Adds a gate and uses an existing register as the output
-  pub fn add_gate_with_out(&mut self, gate: Gate, out: usize) {
-    gate.add_to(out, self, true);
+  pub fn add_gate_with_out(&mut self, gate: Gate, outs: Vec<usize>) {
+    gate.add_to(outs, self, true);
   }
 
-  pub fn add_quiet_gate(&mut self, gate: Gate) -> usize {
-    let out = self.alloc_one();
-    gate.add_to(out, self, false);
+  pub fn add_quiet_gate(&mut self, gate: Gate) -> Vec<usize> {
+    let outs = self.alloc(gate.out_count());
+    gate.add_to(outs.clone(), self, false);
 
-    out
+    outs
   }
 
-  pub fn add_quiet_gate_with_out(&mut self, gate: Gate, out: usize) {
-    gate.add_to(out, self, false);
+  pub fn add_quiet_gate_with_out(&mut self, gate: Gate, outs: Vec<usize>) {
+    gate.add_to(outs, self, false);
   }
 
   pub fn add_op(&mut self, op: NandOp) {
@@ -117,12 +131,12 @@ impl Simulation {
     &mut self,
     name: String,
     inputs: Vec<usize>,
-    output: usize,
+    outputs: Vec<usize>,
   ) {
     self.soucrmaps.push(SourceMap {
       name,
       inputs,
-      output,
+      outputs,
     });
   }
 }

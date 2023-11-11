@@ -1,24 +1,56 @@
-use complogic::{Gate, Simulation};
+use complogic::{Gate, GateLike, Simulation};
+
+struct HalfAdder(usize, usize);
+
+impl GateLike for HalfAdder {
+  fn add_to(
+    &self,
+    outs: Vec<usize>,
+    simulation: &mut Simulation,
+    sourcemap: bool,
+  ) {
+    let [a, b] = [self.0, self.1];
+
+    simulation.add_quiet_gate_with_out(Gate::Xor(a, b), vec![outs[0]]);
+    simulation.add_quiet_gate_with_out(Gate::And(a, b), vec![outs[1]]);
+
+    if sourcemap {
+      simulation.add_sourcemap(
+        "HalfAdder".to_owned(),
+        vec![a, b],
+        vec![outs[0]],
+      );
+    }
+  }
+
+  fn out_count(&self) -> usize {
+    2
+  }
+}
 
 fn main() {
   let mut simulation = Simulation::new(2);
-  let [r, s] = [0, 1];
+  let [a, b] = [0, 1];
 
-  let q = simulation.alloc_one();
-  let qn = simulation.alloc_one();
+  let gate = simulation.add_gate(&HalfAdder(a, b));
+  let sum = gate[0];
+  let carry = gate[1];
 
-  simulation.add_sourcemap("Q".to_owned(), vec![], q);
-  simulation.add_sourcemap("Qn".to_owned(), vec![], qn);
-
-  simulation.add_gate_with_out(Gate::Nor(r, qn), q);
-  simulation.add_gate_with_out(Gate::Nor(s, q), qn);
+  simulation.run(&[false, false]);
+  assert!(!simulation.registers[sum]);
+  assert!(!simulation.registers[carry]);
 
   simulation.run(&[true, false]);
-  simulation.run(&[false, true]);
+  assert!(simulation.registers[sum]);
+  assert!(!simulation.registers[carry]);
 
-  simulation.soucrmaps.iter().for_each(|sourcemap| {
-    sourcemap.display(&simulation);
-  });
+  simulation.run(&[false, true]);
+  assert!(simulation.registers[sum]);
+  assert!(!simulation.registers[carry]);
+
+  simulation.run(&[true, true]);
+  assert!(!simulation.registers[sum]);
+  assert!(simulation.registers[carry]);
 }
 
 #[cfg(test)]
@@ -54,7 +86,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::And(a, b));
+    let out = *simulation.add_gate(&Gate::And(a, b)).first().unwrap();
 
     simulation.run(&[true, true]);
     assert!(simulation.registers[out]);
@@ -69,7 +101,7 @@ mod tests {
 
     let a = simulation.alloc_one();
 
-    simulation.add_gate_with_out(Gate::Not(a), a);
+    simulation.add_gate_with_out(Gate::Not(a), vec![a]);
 
     simulation.run(&[]);
     assert!(simulation.registers[a]);
@@ -86,7 +118,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::Or(a, b));
+    let out = *simulation.add_gate(&Gate::Or(a, b)).first().unwrap();
 
     simulation.run(&[true, false]);
     assert!(simulation.registers[out]);
@@ -97,7 +129,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::Or(a, b));
+    let out = *simulation.add_gate(&Gate::Or(a, b)).first().unwrap();
 
     simulation.run(&[false, false]);
     assert!(!simulation.registers[out]);
@@ -111,8 +143,8 @@ mod tests {
     let q = simulation.alloc_one();
     let qn = simulation.alloc_one();
 
-    simulation.add_gate_with_out(Gate::Nor(r, qn), q);
-    simulation.add_gate_with_out(Gate::Nor(s, q), qn);
+    simulation.add_gate_with_out(Gate::Nor(r, qn), vec![q]);
+    simulation.add_gate_with_out(Gate::Nor(s, q), vec![qn]);
 
     // Reset the latch (due to the nature of logic, it starts as set when it's created)
     simulation.run(&[false, true]);
