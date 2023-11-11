@@ -1,5 +1,4 @@
 use std::{
-  collections::HashMap,
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
 };
@@ -10,6 +9,7 @@ use crate::gates::Gate;
 pub struct NandOp(pub usize, pub usize, pub usize);
 pub type Ops = Vec<NandOp>;
 
+#[derive(Debug)]
 pub struct Incrementer {
   pub val: AtomicUsize,
 }
@@ -52,6 +52,9 @@ pub struct Simulation {
 
   /// The ops to run on the registers
   pub ops: Ops,
+
+  /// Incrementer for allocating registers
+  pub incrementer: Incrementer,
 }
 
 impl Simulation {
@@ -61,6 +64,8 @@ impl Simulation {
       registers: vec![false; immediate_count],
       ops: vec![],
       immediate_count,
+      // Subtracting 1 since count is 1-indexed
+      incrementer: Incrementer::set(immediate_count - 1),
     }
   }
 
@@ -94,16 +99,12 @@ impl Simulation {
   }
 
   /// Compiles a list of gates into Ops
-  pub fn compile(
-    &mut self,
-    gate: Vec<Rc<dyn Gate>>,
-    incrementer: &Incrementer,
-  ) {
+  pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) {
     self.ops = vec![];
     let mut max_index = self.immediate_count;
 
     gate.into_iter().for_each(|gate| {
-      let ops = gate.create(incrementer);
+      let ops = gate.create(&self.incrementer);
 
       ops.iter().for_each(|op| {
         max_index = op.0.max(op.1).max(op.2).max(max_index);

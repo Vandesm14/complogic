@@ -1,20 +1,18 @@
 use std::rc::Rc;
 
-use complogic::{And, Incrementer, Simulation};
+use complogic::{And, Simulation};
 
 fn main() {
+  let mut simulation = Simulation::new(2);
   let [a, b] = [0, 1];
-  // The next index will be 2
-  let incr = Incrementer::set(2);
 
   let and = Rc::new(And {
     a,
     b,
-    out: incr.next(),
+    out: simulation.incrementer.next(),
   });
 
-  let mut simulation = Simulation::new(2);
-  simulation.compile(vec![and.clone()], &incr);
+  simulation.compile(vec![and.clone()]);
   simulation.run(&[true, true]);
 
   println!("And: {}", simulation.register(and.out));
