@@ -94,9 +94,7 @@ impl Simulation {
 
   /// Allocates a new register and returns its index
   pub fn alloc(&mut self) -> usize {
-    self.registers.push(false);
-    self.incrementer.next();
-    self.registers.len() - 1
+    self.incrementer.next()
   }
 
   /// Compiles a list of gates into Ops
