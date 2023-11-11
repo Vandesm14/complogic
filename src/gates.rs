@@ -14,7 +14,7 @@ pub struct Nand {
 
 impl Gate for Nand {
   fn create(&self, _: &Incrementer) -> Ops {
-    vec![NandOp(self.a, self.a, self.out)]
+    vec![NandOp(self.a, self.b, self.out)]
   }
 }
 
