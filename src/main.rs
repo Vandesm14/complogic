@@ -11,8 +11,8 @@ impl GateLike for HalfAdder {
   ) {
     let [a, b] = [self.0, self.1];
 
-    simulation.add_quiet_gate_with_out(Gate::Xor(a, b), vec![outs[0]]);
-    simulation.add_quiet_gate_with_out(Gate::And(a, b), vec![outs[1]]);
+    simulation.add_quiet_gate_with_out(&Gate::Xor(a, b), vec![outs[0]]);
+    simulation.add_quiet_gate_with_out(&Gate::And(a, b), vec![outs[1]]);
 
     if sourcemap {
       simulation.add_sourcemap(
@@ -25,6 +25,33 @@ impl GateLike for HalfAdder {
 
   fn out_count(&self) -> usize {
     2
+  }
+}
+
+struct FullAdder(usize, usize, usize);
+
+impl GateLike for FullAdder {
+  fn add_to(
+    &self,
+    outs: Vec<usize>,
+    simulation: &mut Simulation,
+    sourcemap: bool,
+  ) {
+    let [a, b, cin] = [self.0, self.1, self.2];
+    let [sum, cout] = [outs[0], outs[1]];
+
+    let half_adder_1 = simulation.add_gate(&HalfAdder(a, b));
+    let half_adder_2 =
+      simulation.add_gate_with_out(&HalfAdder(half_adder_1[0], cin), vec![sum]);
+
+    simulation.add_quiet_gate_with_out(
+      &Gate::Or(half_adder_2[1], half_adder_1[1]),
+      vec![outs],
+    )
+  }
+
+  fn out_count(&self) -> usize {
+    3
   }
 }
 

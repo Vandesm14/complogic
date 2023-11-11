@@ -104,18 +104,22 @@ impl Simulation {
   }
 
   /// Adds a gate and uses an existing register as the output
-  pub fn add_gate_with_out(&mut self, gate: Gate, outs: Vec<usize>) {
+  pub fn add_gate_with_out(&mut self, gate: &dyn GateLike, outs: Vec<usize>) {
     gate.add_to(outs, self, true);
   }
 
-  pub fn add_quiet_gate(&mut self, gate: Gate) -> Vec<usize> {
+  pub fn add_quiet_gate(&mut self, gate: &dyn GateLike) -> Vec<usize> {
     let outs = self.alloc(gate.out_count());
     gate.add_to(outs.clone(), self, false);
 
     outs
   }
 
-  pub fn add_quiet_gate_with_out(&mut self, gate: Gate, outs: Vec<usize>) {
+  pub fn add_quiet_gate_with_out(
+    &mut self,
+    gate: &dyn GateLike,
+    outs: Vec<usize>,
+  ) {
     gate.add_to(outs, self, false);
   }
 
