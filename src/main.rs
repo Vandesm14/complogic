@@ -18,41 +18,41 @@ impl Gate {
     match *self {
       Self::Nand(a, b) => simulation.add_op(NandOp(a, b, out)),
       Self::Not(a) => {
-        simulation.add_gate_with_out(Gate::Nand(a, a), out, false);
+        simulation.add_quiet_gate_with_out(Gate::Nand(a, a), out);
 
         if sourcemap {
           simulation.add_sourcemap("Not".to_owned(), vec![a], out);
         }
       }
       Self::And(a, b) => {
-        let nand = simulation.add_gate(Gate::Nand(a, b), false);
-        simulation.add_gate_with_out(Gate::Not(nand), out, false);
+        let nand = simulation.add_quiet_gate(Gate::Nand(a, b));
+        simulation.add_quiet_gate_with_out(Gate::Not(nand), out);
 
         if sourcemap {
           simulation.add_sourcemap("And".to_owned(), vec![a, b], out);
         }
       }
       Self::Or(a, b) => {
-        let nand_a = simulation.add_gate(Gate::Nand(a, a), false);
-        let nand_b = simulation.add_gate(Gate::Nand(b, b), false);
-        simulation.add_gate_with_out(Gate::Nand(nand_a, nand_b), out, false);
+        let nand_a = simulation.add_quiet_gate(Gate::Nand(a, a));
+        let nand_b = simulation.add_quiet_gate(Gate::Nand(b, b));
+        simulation.add_quiet_gate_with_out(Gate::Nand(nand_a, nand_b), out);
 
         if sourcemap {
           simulation.add_sourcemap("Or".to_owned(), vec![a, b], out);
         }
       }
       Self::Nor(a, b) => {
-        let or = simulation.add_gate(Gate::Or(a, b), false);
-        simulation.add_gate_with_out(Gate::Not(or), out, false);
+        let or = simulation.add_quiet_gate(Gate::Or(a, b));
+        simulation.add_quiet_gate_with_out(Gate::Not(or), out);
 
         if sourcemap {
           simulation.add_sourcemap("Nor".to_owned(), vec![a, b], out);
         }
       }
       Self::Xor(a, b) => {
-        let or = simulation.add_gate(Gate::Or(a, b), false);
-        let nand = simulation.add_gate(Gate::Nand(a, b), false);
-        simulation.add_gate_with_out(Gate::And(or, nand), out, false);
+        let or = simulation.add_quiet_gate(Gate::Or(a, b));
+        let nand = simulation.add_quiet_gate(Gate::Nand(a, b));
+        simulation.add_quiet_gate_with_out(Gate::And(or, nand), out);
 
         if sourcemap {
           simulation.add_sourcemap("Xor".to_owned(), vec![a, b], out);
@@ -73,6 +73,7 @@ struct Simulation {
   /// The number of immediate values to allocate when running the simulation
   immediate_count: usize,
 
+  /// The sourcemaps for the simulation (maps registers to gates)
   soucrmaps: Vec<SourceMap>,
 }
 
@@ -139,16 +140,27 @@ impl Simulation {
   }
 
   /// Adds a gate to the simulation and returns the output register
-  fn add_gate(&mut self, gate: Gate, sourcemap: bool) -> usize {
+  fn add_gate(&mut self, gate: Gate) -> usize {
     let out = self.alloc_one();
-    gate.add_to(out, self, sourcemap);
+    gate.add_to(out, self, true);
 
     out
   }
 
   /// Adds a gate and uses an existing register as the output
-  fn add_gate_with_out(&mut self, gate: Gate, out: usize, sourcemap: bool) {
-    gate.add_to(out, self, sourcemap);
+  fn add_gate_with_out(&mut self, gate: Gate, out: usize) {
+    gate.add_to(out, self, true);
+  }
+
+  fn add_quiet_gate(&mut self, gate: Gate) -> usize {
+    let out = self.alloc_one();
+    gate.add_to(out, self, false);
+
+    out
+  }
+
+  fn add_quiet_gate_with_out(&mut self, gate: Gate, out: usize) {
+    gate.add_to(out, self, false);
   }
 
   fn add_op(&mut self, op: NandOp) {
@@ -178,8 +190,8 @@ fn main() {
   simulation.add_sourcemap("Q".to_owned(), vec![], q);
   simulation.add_sourcemap("Qn".to_owned(), vec![], qn);
 
-  simulation.add_gate_with_out(Gate::Nor(r, qn), q, true);
-  simulation.add_gate_with_out(Gate::Nor(s, q), qn, true);
+  simulation.add_gate_with_out(Gate::Nor(r, qn), q);
+  simulation.add_gate_with_out(Gate::Nor(s, q), qn);
 
   simulation.run(&[true, false]);
   simulation.run(&[false, true]);
@@ -220,7 +232,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::And(a, b), false);
+    let out = simulation.add_gate(Gate::And(a, b));
 
     simulation.run(&[true, true]);
     assert!(simulation.registers[out]);
@@ -235,7 +247,7 @@ mod tests {
 
     let a = simulation.alloc_one();
 
-    simulation.add_gate_with_out(Gate::Not(a), a, false);
+    simulation.add_gate_with_out(Gate::Not(a), a);
 
     simulation.run(&[]);
     assert!(simulation.registers[a]);
@@ -252,7 +264,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::Or(a, b), false);
+    let out = simulation.add_gate(Gate::Or(a, b));
 
     simulation.run(&[true, false]);
     assert!(simulation.registers[out]);
@@ -263,7 +275,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::Or(a, b), false);
+    let out = simulation.add_gate(Gate::Or(a, b));
 
     simulation.run(&[false, false]);
     assert!(!simulation.registers[out]);
@@ -277,8 +289,8 @@ mod tests {
     let q = simulation.alloc_one();
     let qn = simulation.alloc_one();
 
-    simulation.add_gate_with_out(Gate::Nor(r, qn), q, false);
-    simulation.add_gate_with_out(Gate::Nor(s, q), qn, false);
+    simulation.add_gate_with_out(Gate::Nor(r, qn), q);
+    simulation.add_gate_with_out(Gate::Nor(s, q), qn);
 
     // Reset the latch (due to the nature of logic, it starts as set when it's created)
     simulation.run(&[false, true]);
