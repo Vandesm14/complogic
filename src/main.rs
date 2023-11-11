@@ -197,6 +197,7 @@ mod tests {
       registers: vec![false, false, false],
       ops: vec![NandOp(0, 1, 2)],
       immediate_count: 2,
+      soucrmaps: vec![],
     };
 
     simulation.run(&[false, false]);
@@ -217,7 +218,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::And(a, b));
+    let out = simulation.add_gate(Gate::And(a, b), false);
 
     simulation.run(&[true, true]);
     assert!(simulation.registers[out]);
@@ -232,7 +233,7 @@ mod tests {
 
     let a = simulation.alloc_one();
 
-    simulation.add_gate_with_out(Gate::Not(a), a);
+    simulation.add_gate_with_out(Gate::Not(a), a, false);
 
     simulation.run(&[]);
     assert!(simulation.registers[a]);
@@ -249,7 +250,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::Or(a, b));
+    let out = simulation.add_gate(Gate::Or(a, b), false);
 
     simulation.run(&[true, false]);
     assert!(simulation.registers[out]);
@@ -260,7 +261,7 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let out = simulation.add_gate(Gate::Or(a, b));
+    let out = simulation.add_gate(Gate::Or(a, b), false);
 
     simulation.run(&[false, false]);
     assert!(!simulation.registers[out]);
