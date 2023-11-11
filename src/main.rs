@@ -42,7 +42,7 @@ impl Gate {
         }
       }
       Self::Nor(a, b) => {
-        let or = simulation.add_gate(Gate::Or(a, a), false);
+        let or = simulation.add_gate(Gate::Or(a, b), false);
         simulation.add_gate_with_out(Gate::Not(or), out, false);
 
         if sourcemap {
@@ -181,9 +181,11 @@ fn main() {
   simulation.add_gate_with_out(Gate::Nor(r, qn), q, true);
   simulation.add_gate_with_out(Gate::Nor(s, q), qn, true);
 
+  simulation.run(&[true, false]);
   simulation.run(&[false, true]);
-  simulation.soucrmaps.iter().for_each(|source_map| {
-    source_map.display(&simulation);
+
+  simulation.soucrmaps.iter().for_each(|sourcemap| {
+    sourcemap.display(&simulation);
   });
 }
 
@@ -265,6 +267,39 @@ mod tests {
 
     simulation.run(&[false, false]);
     assert!(!simulation.registers[out]);
+  }
+
+  #[test]
+  fn rs_nor_latch() {
+    let mut simulation = Simulation::new(2);
+    let [s, r] = [0, 1];
+
+    let q = simulation.alloc_one();
+    let qn = simulation.alloc_one();
+
+    simulation.add_gate_with_out(Gate::Nor(r, qn), q, false);
+    simulation.add_gate_with_out(Gate::Nor(s, q), qn, false);
+
+    // Reset the latch (due to the nature of logic, it starts as set when it's created)
+    simulation.run(&[false, true]);
+
+    simulation.run(&[false, false]);
+    assert!(!simulation.registers[q]);
+    assert!(simulation.registers[qn]);
+
+    // FIXME: I think it's incorrect for it to need 2 ticks to set?
+    simulation.run(&[true, false]);
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[q]);
+    assert!(!simulation.registers[qn]);
+
+    simulation.run(&[false, true]);
+    assert!(!simulation.registers[q]);
+    assert!(simulation.registers[qn]);
+
+    simulation.run(&[true, true]);
+    assert!(!simulation.registers[q]);
+    assert!(!simulation.registers[qn]);
   }
 
   // #[test]
