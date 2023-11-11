@@ -18,34 +18,6 @@ fn main() {
   println!("Or: {}", simulation.register(or.out));
   println!("Registers: {:?}", simulation.registers);
   println!("Ops: {:?}", simulation.ops);
-
-  // let incr = Incrementer::new();
-
-  // let button = incr.next();
-  // let and = And {
-  //   a: button,
-  //   b: button,
-  //   out: incr.next(),
-  // };
-  // let not = Not {
-  //   a: button,
-  //   out: incr.next(),
-  // };
-  // let or = Or {
-  //   a: and.out,
-  //   b: not.out,
-  //   out: incr.next(),
-  // };
-  // let nor = Nor {
-  //   a: and.out,
-  //   b: not.out,
-  //   out: incr.next(),
-  // };
-
-  // println!("And: {:?}", and.create(&incr));
-  // println!("Not: {:?}", not.create(&incr));
-  // println!("Or: {:?}", or.create(&incr));
-  // println!("Nor: {:?}", nor.create(&incr));
 }
 
 #[cfg(test)]

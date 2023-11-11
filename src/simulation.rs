@@ -92,12 +92,6 @@ impl Simulation {
     });
   }
 
-  /// Allocates a new register and returns its index
-  pub fn alloc_one(&mut self) -> usize {
-    self.registers.push(false);
-    self.registers.len() - 1
-  }
-
   /// Compiles a list of gates into Ops
   pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) {
     self.ops = vec![];
