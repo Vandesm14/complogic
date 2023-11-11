@@ -1,4 +1,4 @@
-name: Check
+name: Checks
 
 on:
   push:
@@ -18,4 +18,4 @@ jobs:
       - name: Build
         run: cargo build --verbose
       - name: Run tests
-        run: cargo check --verbose -- -F warnings
+        run: cargo clippy --verbose -- -F warnings
