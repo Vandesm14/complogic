@@ -1,4 +1,8 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+  collections::HashMap,
+  rc::Rc,
+  sync::atomic::{AtomicUsize, Ordering},
+};
 
 use crate::gates::Gate;
 
@@ -38,125 +42,116 @@ impl Default for Incrementer {
   }
 }
 
-// #[derive(Debug)]
-// pub struct SourceMap {
-//   pub name: String,
-//   pub inputs: Vec<usize>,
-//   pub output: usize,
-// }
+#[derive(Debug)]
+pub struct Simulation {
+  /// Registers that note the inputs and outputs of logic gates
+  pub registers: Vec<bool>,
 
-// impl SourceMap {
-//   pub fn display(&self, simulation: &Simulation) {
-//     let inputs = self
-//       .inputs
-//       .iter()
-//       .map(|input| simulation.registers[*input])
-//       .collect::<Vec<_>>();
+  /// The number of immediate values to allocate when running the simulation
+  pub immediate_count: usize,
 
-//     println!(
-//       "{}: {:?} -> {}",
-//       self.name, inputs, simulation.registers[self.output]
-//     );
-//   }
-// }
+  /// The ops to run on the registers
+  pub ops: Ops,
+}
 
-// #[derive(Debug)]
-// pub struct Simulation {
-//   /// Registers that note the inputs and outputs of logic gates
-//   pub registers: Vec<bool>,
+impl Simulation {
+  /// Creates a new simulation
+  pub fn new(immediate_count: usize) -> Self {
+    Self {
+      registers: vec![false; immediate_count],
+      ops: vec![],
+      immediate_count,
+    }
+  }
 
-//   /// The ops to run on the registers
-//   pub ops: Ops,
+  /// Runs the VM with the given immediates
+  pub fn run(&mut self, immediates: &[bool]) {
+    if immediates.len() != self.immediate_count {
+      panic!(
+        "Expected {} immediates, got {}",
+        self.immediate_count,
+        immediates.len()
+      );
+    }
 
-//   /// The number of immediate values to allocate when running the simulation
-//   pub immediate_count: usize,
+    immediates.iter().enumerate().for_each(|(i, value)| {
+      self.registers[i] = *value;
+    });
 
-//   /// The sourcemaps for the simulation (maps registers to gates)
-//   pub soucrmaps: Vec<SourceMap>,
-// }
+    self.ops.iter().for_each(|op| match *op {
+      NandOp(a, b, out) => {
+        let a = self.registers[a];
+        let b = self.registers[b];
+        self.registers[out] = !(a && b);
+      }
+    });
+  }
 
-// impl Simulation {
-//   /// Creates a new simulation
-//   pub fn new(immediate_count: usize) -> Self {
-//     Self {
-//       registers: vec![false; immediate_count],
-//       ops: vec![],
-//       immediate_count,
-//       soucrmaps: vec![],
-//     }
-//   }
+  /// Allocates a new register and returns its index
+  pub fn alloc_one(&mut self) -> usize {
+    self.registers.push(false);
+    self.registers.len() - 1
+  }
 
-//   /// Runs the VM with the given immediates
-//   pub fn run(&mut self, immediates: &[bool]) {
-//     if immediates.len() != self.immediate_count {
-//       panic!(
-//         "Expected {} immediates, got {}",
-//         self.immediate_count,
-//         immediates.len()
-//       );
-//     }
+  /// Compiles a Gate into Ops (allocation and absolutification)
+  pub fn compile_one(&mut self, gate: Rc<dyn Gate>) -> Ops {
+    let ops = gate.create(&Incrementer::new());
 
-//     immediates.iter().enumerate().for_each(|(i, value)| {
-//       self.registers[i] = *value;
-//     });
+    // key = relative id, value = absolute id
+    let mut rel_to_abs: HashMap<usize, usize> = HashMap::new();
+    let ops = ops
+      .iter()
+      .map(|op| {
+        let [a, b, out] = [op.0, op.1, op.2];
 
-//     self.ops.iter().for_each(|op| match *op {
-//       NandOp(a, b, out) => {
-//         let a = self.registers[a];
-//         let b = self.registers[b];
-//         self.registers[out] = !(a && b);
-//       }
-//     });
-//   }
+        let a = match rel_to_abs.get(&a) {
+          Some(id) => *id,
+          None => {
+            let id = self.alloc_one();
+            rel_to_abs.insert(a, id);
+            id
+          }
+        };
+        let b = match rel_to_abs.get(&b) {
+          Some(id) => *id,
+          None => {
+            let id = self.alloc_one();
+            rel_to_abs.insert(b, id);
+            id
+          }
+        };
+        let out = match rel_to_abs.get(&out) {
+          Some(id) => *id,
+          None => {
+            let id = self.alloc_one();
+            rel_to_abs.insert(out, id);
+            id
+          }
+        };
 
-//   /// Allocates a new register and returns its index
-//   pub fn alloc_one(&mut self) -> usize {
-//     self.registers.push(false);
-//     self.registers.len() - 1
-//   }
+        NandOp(a, b, out)
+      })
+      .collect::<Vec<_>>();
 
-//   /// Adds a gate to the simulation and returns the output register
-//   pub fn add_gate(&mut self, gate: Gate) -> usize {
-//     let out = self.alloc_one();
-//     gate.add_to(out, self, true);
+    ops
+  }
 
-//     out
-//   }
+  /// Compiles a list of gates into Ops
+  pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) {
+    self.registers = vec![false; self.immediate_count];
+    self.ops = vec![];
 
-//   /// Adds a gate and uses an existing register as the output
-//   pub fn add_gate_with_out(&mut self, gate: Gate, out: usize) {
-//     gate.add_to(out, self, true);
-//   }
+    gate.into_iter().for_each(|gate| {
+      let mut ops = self.compile_one(gate);
+      self.ops.append(&mut ops);
+    });
+  }
 
-//   pub fn add_quiet_gate(&mut self, gate: Gate) -> usize {
-//     let out = self.alloc_one();
-//     gate.add_to(out, self, false);
+  pub fn add_op(&mut self, op: NandOp) {
+    self.ops.push(op);
+  }
 
-//     out
-//   }
-
-//   pub fn add_quiet_gate_with_out(&mut self, gate: Gate, out: usize) {
-//     gate.add_to(out, self, false);
-//   }
-
-//   pub fn add_op(&mut self, op: NandOp) {
-//     self.ops.push(op);
-//   }
-
-//   pub fn register(&self, index: usize) -> bool {
-//     self.registers[index]
-//   }
-
-//   pub fn add_sourcemap(
-//     &mut self,
-//     name: String,
-//     inputs: Vec<usize>,
-//     output: usize,
-//   ) {
-//     self.soucrmaps.push(SourceMap {
-//       name,
-//       inputs,
-//       output,
-//     });
-//   }
-// }
+  pub fn register(&self, index: usize) -> bool {
+    self.registers[index]
+  }
+}

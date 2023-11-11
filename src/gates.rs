@@ -1,57 +1,8 @@
-use crate::Incrementer;
+use crate::{Incrementer, NandOp, Ops};
 use std::fmt::Debug;
 
-// pub enum Gate {
-//   Nand { a: usize, b: usize, out: usize },
-//   And { a: usize, b: usize, out: usize },
-//   Not { a: usize, out: usize },
-//   Or { a: usize, b: usize, out: usize },
-//   Nor { a: usize, b: usize, out: usize },
-//   Xor { a: usize, b: usize, out: usize },
-// }
-
-// impl Gate {
-//   pub fn create(&self, incrementer: Incrementer, ops: Ops) {
-//     match *self {
-//       Self::Nand { a, b, out } => {
-//         ops.push(NandOp(a, b, out));
-//       }
-//       Self::Not { a, out } => {
-//         Gate::Nand { a, b: a, out }.create(incrementer, ops);
-//       }
-//       Self::And { a, b, out } => {
-//         let nand = Gate::Nand {
-//           a,
-//           b,
-//           out: incrementer.next(),
-//         };
-//         Gate::Not { a: , out };
-//       }
-//       Self::Or { a, b, out } => {
-//         // let nand_a = simulation.add_quiet_gate(Gate::Nand(a, a));
-//         // let nand_b = simulation.add_quiet_gate(Gate::Nand(b, b));
-//         // simulation.add_quiet_gate_with_out(Gate::Nand(nand_a, nand_b), out);
-//         todo!()
-//       }
-//       Self::Nor { a, b, out } => {
-//         // let or = simulation.add_quiet_gate(Gate::Or(a, b));
-//         // simulation.add_quiet_gate_with_out(Gate::Not(or), out);
-//         todo!()
-//       }
-//       Self::Xor { a, b, out } => {
-//         // let or = simulation.add_quiet_gate(Gate::Or(a, b));
-//         // let nand = simulation.add_quiet_gate(Gate::Nand(a, b));
-//         // simulation.add_quiet_gate_with_out(Gate::And(or, nand), out);
-//         todo!()
-//       }
-//     }
-//   }
-// }
-
-type Gates = Vec<Box<dyn Gate>>;
-
 pub trait Gate: Debug {
-  fn create(&self, incrementer: &Incrementer) -> Gates;
+  fn create(&self, incrementer: &Incrementer) -> Ops;
 }
 
 #[derive(Debug)]
@@ -62,12 +13,8 @@ pub struct Nand {
 }
 
 impl Gate for Nand {
-  fn create(&self, _: &Incrementer) -> Gates {
-    vec![Box::new(Nand {
-      a: self.a,
-      b: self.a,
-      out: self.out,
-    })]
+  fn create(&self, _: &Incrementer) -> Ops {
+    vec![NandOp(self.a, self.a, self.out)]
   }
 }
 
@@ -78,12 +25,8 @@ pub struct Not {
 }
 
 impl Gate for Not {
-  fn create(&self, _: &Incrementer) -> Gates {
-    vec![Box::new(Nand {
-      a: self.a,
-      b: self.a,
-      out: self.out,
-    })]
+  fn create(&self, _: &Incrementer) -> Ops {
+    vec![NandOp(self.a, self.a, self.out)]
   }
 }
 
@@ -95,7 +38,7 @@ pub struct And {
 }
 
 impl Gate for And {
-  fn create(&self, incrementer: &Incrementer) -> Gates {
+  fn create(&self, incrementer: &Incrementer) -> Ops {
     let nand = Nand {
       a: self.a,
       b: self.b,
@@ -106,10 +49,11 @@ impl Gate for And {
       out: self.out,
     };
 
-    let mut gates: Gates = vec![Box::new(nand)];
-    gates.extend(not.create(incrementer));
+    let mut ops: Ops = vec![];
+    ops.extend(nand.create(incrementer));
+    ops.extend(not.create(incrementer));
 
-    gates
+    ops
   }
 }
 
@@ -121,7 +65,7 @@ pub struct Or {
 }
 
 impl Gate for Or {
-  fn create(&self, incrementer: &Incrementer) -> Gates {
+  fn create(&self, incrementer: &Incrementer) -> Ops {
     let nand_a = Nand {
       a: self.a,
       b: self.a,
@@ -138,7 +82,12 @@ impl Gate for Or {
       out: self.out,
     };
 
-    vec![Box::new(nand_a), Box::new(nand_b), Box::new(nand)]
+    let mut ops: Ops = vec![];
+    ops.extend(nand_a.create(incrementer));
+    ops.extend(nand_b.create(incrementer));
+    ops.extend(nand.create(incrementer));
+
+    ops
   }
 }
 
@@ -150,7 +99,7 @@ pub struct Nor {
 }
 
 impl Gate for Nor {
-  fn create(&self, incrementer: &Incrementer) -> Gates {
+  fn create(&self, incrementer: &Incrementer) -> Ops {
     let or = Or {
       a: self.a,
       b: self.b,
@@ -161,10 +110,44 @@ impl Gate for Nor {
       out: self.out,
     };
 
-    let mut gates: Gates = vec![];
-    gates.extend(or.create(incrementer));
-    gates.extend(not.create(incrementer));
+    let mut ops: Ops = vec![];
+    ops.extend(or.create(incrementer));
+    ops.extend(not.create(incrementer));
 
-    gates
+    ops
+  }
+}
+
+#[derive(Debug)]
+pub struct Xor {
+  pub a: usize,
+  pub b: usize,
+  pub out: usize,
+}
+
+impl Gate for Xor {
+  fn create(&self, incrementer: &Incrementer) -> Ops {
+    let or = Or {
+      a: self.a,
+      b: self.b,
+      out: incrementer.next(),
+    };
+    let nand = Nand {
+      a: self.a,
+      b: self.b,
+      out: incrementer.next(),
+    };
+    let and = And {
+      a: or.out,
+      b: nand.out,
+      out: self.out,
+    };
+
+    let mut ops: Ops = vec![];
+    ops.extend(or.create(incrementer));
+    ops.extend(nand.create(incrementer));
+    ops.extend(and.create(incrementer));
+
+    ops
   }
 }
