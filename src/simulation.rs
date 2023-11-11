@@ -32,7 +32,7 @@ impl Incrementer {
   }
 
   pub fn next_n(&self, n: usize) -> usize {
-    self.val.fetch_add(n, Ordering::AcqRel)
+    self.val.fetch_add(n, Ordering::AcqRel) + n - 1
   }
 }
 
@@ -97,21 +97,17 @@ impl Simulation {
   }
 
   /// Compiles a list of gates into Ops
-  pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) {
+  pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) -> usize {
     self.ops = vec![];
-    let mut max_index = self.immediate_count;
 
     gate.into_iter().for_each(|gate| {
-      let ops = gate.create(&self.incrementer);
-
-      ops.iter().for_each(|op| {
-        max_index = op.0.max(op.1).max(op.2).max(max_index);
-      });
-
-      self.ops.extend(ops);
+      self.ops.extend(gate.create(&self.incrementer));
     });
 
-    self.registers = vec![false; max_index + 1];
+    let reg_count = self.incrementer.val.load(Ordering::Relaxed);
+    self.registers = vec![false; reg_count];
+
+    reg_count
   }
 
   pub fn add_op(&mut self, op: NandOp) {
@@ -120,5 +116,64 @@ impl Simulation {
 
   pub fn register(&self, index: usize) -> bool {
     self.registers[index]
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn op_nand() {
+    let mut simulation = Simulation {
+      registers: vec![false, false, false],
+      ops: vec![NandOp(0, 1, 2)],
+      immediate_count: 2,
+      incrementer: Incrementer::set(2 - 1),
+    };
+
+    simulation.run(&[false, false]);
+    assert!(simulation.registers[2]);
+
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[2]);
+
+    simulation.run(&[false, true]);
+    assert!(simulation.registers[2]);
+
+    simulation.run(&[true, true]);
+    assert!(!simulation.registers[2]);
+  }
+
+  #[test]
+  fn alloc_lazy_increment() {
+    let mut simulation = Simulation::new(0);
+    assert_eq!(simulation.registers.len(), 0);
+    assert_eq!(simulation.alloc(), 0);
+    assert_eq!(simulation.alloc(), 1);
+    assert_eq!(simulation.alloc(), 2);
+  }
+
+  #[test]
+  fn alloc_plus_immediates() {
+    let mut simulation = Simulation::new(2);
+    assert_eq!(simulation.alloc(), 2);
+    assert_eq!(simulation.alloc(), 3);
+    assert_eq!(simulation.alloc(), 4);
+  }
+
+  #[test]
+  fn alloc_all_on_compile() {
+    let mut simulation = Simulation::new(2);
+    assert_eq!(simulation.registers.len(), 2);
+
+    let reg_count = simulation.compile(vec![]);
+    assert_eq!(reg_count, 2);
+
+    assert_eq!(simulation.alloc(), 2);
+    assert_eq!(simulation.alloc(), 3);
+
+    let reg_count = simulation.compile(vec![]);
+    assert_eq!(reg_count, 4);
   }
 }
