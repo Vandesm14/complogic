@@ -138,7 +138,7 @@ impl Gate for Xor {
       out: incrementer.next(),
     };
     let and = And {
-      a: nand.out,
+      a: or.out,
       b: nand.out,
       out: self.out,
     };
