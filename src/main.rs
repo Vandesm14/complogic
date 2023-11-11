@@ -10,25 +10,53 @@ enum Gate {
   Not(usize),
   Or(usize, usize),
   Nor(usize, usize),
+  Xor(usize, usize),
 }
 
 impl Gate {
-  fn add_to(&self, out: usize, simulation: &mut Simulation) {
+  fn add_to(&self, out: usize, simulation: &mut Simulation, sourcemap: bool) {
     match *self {
       Self::Nand(a, b) => simulation.add_op(NandOp(a, b, out)),
-      Self::Not(a) => simulation.add_gate_with_out(Gate::Nand(a, a), out),
+      Self::Not(a) => {
+        simulation.add_gate_with_out(Gate::Nand(a, a), out, false);
+
+        if sourcemap {
+          simulation.add_sourcemap("Not".to_owned(), vec![a], out);
+        }
+      }
       Self::And(a, b) => {
-        let nand = simulation.add_gate(Gate::Nand(a, b));
-        simulation.add_gate_with_out(Gate::Not(nand), out);
+        let nand = simulation.add_gate(Gate::Nand(a, b), false);
+        simulation.add_gate_with_out(Gate::Not(nand), out, false);
+
+        if sourcemap {
+          simulation.add_sourcemap("And".to_owned(), vec![a, b], out);
+        }
       }
       Self::Or(a, b) => {
-        let nand_a = simulation.add_gate(Gate::Nand(a, a));
-        let nand_b = simulation.add_gate(Gate::Nand(b, b));
-        simulation.add_gate_with_out(Gate::Nand(nand_a, nand_b), out);
+        let nand_a = simulation.add_gate(Gate::Nand(a, a), false);
+        let nand_b = simulation.add_gate(Gate::Nand(b, b), false);
+        simulation.add_gate_with_out(Gate::Nand(nand_a, nand_b), out, false);
+
+        if sourcemap {
+          simulation.add_sourcemap("Or".to_owned(), vec![a, b], out);
+        }
       }
       Self::Nor(a, b) => {
-        let or = simulation.add_gate(Gate::Or(a, b));
-        simulation.add_gate_with_out(Gate::Not(or), out);
+        let or = simulation.add_gate(Gate::Or(a, a), false);
+        simulation.add_gate_with_out(Gate::Not(or), out, false);
+
+        if sourcemap {
+          simulation.add_sourcemap("Nor".to_owned(), vec![a, b], out);
+        }
+      }
+      Self::Xor(a, b) => {
+        let or = simulation.add_gate(Gate::Or(a, b), false);
+        let nand = simulation.add_gate(Gate::Nand(a, b), false);
+        simulation.add_gate_with_out(Gate::And(or, nand), out, false);
+
+        if sourcemap {
+          simulation.add_sourcemap("Xor".to_owned(), vec![a, b], out);
+        }
       }
     }
   }
@@ -44,6 +72,30 @@ struct Simulation {
 
   /// The number of immediate values to allocate when running the simulation
   immediate_count: usize,
+
+  soucrmaps: Vec<SourceMap>,
+}
+
+#[derive(Debug)]
+struct SourceMap {
+  name: String,
+  inputs: Vec<usize>,
+  output: usize,
+}
+
+impl SourceMap {
+  fn display(&self, simulation: &Simulation) {
+    let inputs = self
+      .inputs
+      .iter()
+      .map(|input| simulation.registers[*input])
+      .collect::<Vec<_>>();
+
+    println!(
+      "{}: {:?} -> {}",
+      self.name, inputs, simulation.registers[self.output]
+    );
+  }
 }
 
 impl Simulation {
@@ -53,6 +105,7 @@ impl Simulation {
       registers: vec![false; immediate_count],
       ops: vec![],
       immediate_count,
+      soucrmaps: vec![],
     }
   }
 
@@ -86,16 +139,16 @@ impl Simulation {
   }
 
   /// Adds a gate to the simulation and returns the output register
-  fn add_gate(&mut self, gate: Gate) -> usize {
+  fn add_gate(&mut self, gate: Gate, sourcemap: bool) -> usize {
     let out = self.alloc_one();
-    gate.add_to(out, self);
+    gate.add_to(out, self, sourcemap);
 
     out
   }
 
   /// Adds a gate and uses an existing register as the output
-  fn add_gate_with_out(&mut self, gate: Gate, out: usize) {
-    gate.add_to(out, self);
+  fn add_gate_with_out(&mut self, gate: Gate, out: usize, sourcemap: bool) {
+    gate.add_to(out, self, sourcemap);
   }
 
   fn add_op(&mut self, op: NandOp) {
@@ -105,40 +158,33 @@ impl Simulation {
   fn register(&self, index: usize) -> bool {
     self.registers[index]
   }
+
+  fn add_sourcemap(&mut self, name: String, inputs: Vec<usize>, output: usize) {
+    self.soucrmaps.push(SourceMap {
+      name,
+      inputs,
+      output,
+    });
+  }
 }
 
 fn main() {
   let mut simulation = Simulation::new(2);
-
-  let t = simulation.alloc_one();
-  let clk = simulation.alloc_one();
+  let [r, s] = [0, 1];
 
   let q = simulation.alloc_one();
   let qn = simulation.alloc_one();
 
-  let and_top_1 = simulation.add_gate(Gate::And(t, clk));
-  let and_top_2 = simulation.add_gate(Gate::And(q, and_top_1));
+  simulation.add_sourcemap("Q".to_owned(), vec![], q);
+  simulation.add_sourcemap("Qn".to_owned(), vec![], qn);
 
-  let and_bottom_1 = simulation.add_gate(Gate::And(t, clk));
-  let and_bottom_2 = simulation.add_gate(Gate::And(qn, and_bottom_1));
+  simulation.add_gate_with_out(Gate::Nor(r, qn), q, true);
+  simulation.add_gate_with_out(Gate::Nor(s, q), qn, true);
 
-  let or_top_out = simulation.alloc_one();
-  simulation.add_gate_with_out(Gate::Or(and_top_2, or_top_out), or_top_out);
-
-  let or_bottom_out = simulation.alloc_one();
-  simulation
-    .add_gate_with_out(Gate::Or(and_bottom_2, or_bottom_out), or_bottom_out);
-
-  simulation.add_gate_with_out(Gate::Or(or_bottom_out, q), q);
-  simulation.add_gate_with_out(Gate::Or(or_top_out, qn), qn);
-
-  simulation.run(&[true, true]);
-  println!("Simulation: {:#?}", simulation.registers);
-  println!(
-    "Q: {}, Qn: {}",
-    simulation.register(q),
-    simulation.register(qn)
-  );
+  simulation.run(&[false, true]);
+  simulation.soucrmaps.iter().for_each(|source_map| {
+    source_map.display(&simulation);
+  });
 }
 
 #[cfg(test)]
