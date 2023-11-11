@@ -137,8 +137,8 @@ impl NodeTemplateTrait for NodeTempl {
     _user_state: &mut Self::UserState,
   ) -> Vec<&'static str> {
     match self {
-      NodeTempl::Immediate => vec!["Tools"],
       NodeTempl::And => vec!["Gate"],
+      NodeTempl::Immediate => vec!["Tools"],
     }
   }
 
