@@ -28,11 +28,11 @@ impl Incrementer {
   }
 
   pub fn next(&self) -> usize {
-    self.val.fetch_add(1, Ordering::Relaxed)
+    self.val.fetch_add(1, Ordering::AcqRel)
   }
 
   pub fn next_n(&self, n: usize) -> usize {
-    self.val.fetch_add(n, Ordering::Relaxed)
+    self.val.fetch_add(n, Ordering::AcqRel)
   }
 }
 
@@ -93,58 +93,26 @@ impl Simulation {
     self.registers.len() - 1
   }
 
-  /// Compiles a Gate into Ops (allocation and absolutification)
-  pub fn compile_one(&mut self, gate: Rc<dyn Gate>) -> Ops {
-    let ops = gate.create(&Incrementer::new());
-
-    // key = relative id, value = absolute id
-    let mut rel_to_abs: HashMap<usize, usize> = HashMap::new();
-    let ops = ops
-      .iter()
-      .map(|op| {
-        let [a, b, out] = [op.0, op.1, op.2];
-
-        let a = match rel_to_abs.get(&a) {
-          Some(id) => *id,
-          None => {
-            let id = self.alloc_one();
-            rel_to_abs.insert(a, id);
-            id
-          }
-        };
-        let b = match rel_to_abs.get(&b) {
-          Some(id) => *id,
-          None => {
-            let id = self.alloc_one();
-            rel_to_abs.insert(b, id);
-            id
-          }
-        };
-        let out = match rel_to_abs.get(&out) {
-          Some(id) => *id,
-          None => {
-            let id = self.alloc_one();
-            rel_to_abs.insert(out, id);
-            id
-          }
-        };
-
-        NandOp(a, b, out)
-      })
-      .collect::<Vec<_>>();
-
-    ops
-  }
-
   /// Compiles a list of gates into Ops
-  pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) {
-    self.registers = vec![false; self.immediate_count];
+  pub fn compile(
+    &mut self,
+    gate: Vec<Rc<dyn Gate>>,
+    incrementer: &Incrementer,
+  ) {
     self.ops = vec![];
+    let mut max_index = self.immediate_count;
 
     gate.into_iter().for_each(|gate| {
-      let mut ops = self.compile_one(gate);
-      self.ops.append(&mut ops);
+      let ops = gate.create(incrementer);
+
+      ops.iter().for_each(|op| {
+        max_index = op.0.max(op.1).max(op.2).max(max_index);
+      });
+
+      self.ops.extend(ops);
     });
+
+    self.registers = vec![false; max_index + 1];
   }
 
   pub fn add_op(&mut self, op: NandOp) {
