@@ -1,6 +1,7 @@
 # Complogic
 
-[![Rust](https://github.com/Vandesm14/complogic/actions/workflows/rust.yml/badge.svg)](https://github.com/Vandesm14/complogic/actions/workflows/rust.yml)
+[![Tests](https://github.com/Vandesm14/complogic/actions/workflows/tests.yml/badge.svg)](https://github.com/Vandesm14/complogic/actions/workflows/tests.yml)
+[![Checks](https://github.com/Vandesm14/complogic/actions/workflows/check.yml/badge.svg)](https://github.com/Vandesm14/complogic/actions/workflows/check.yml)
 
 Simulate logic gates on a compiled single-instruction VM with Rust.
 
