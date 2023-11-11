@@ -1,5 +1,7 @@
 # Complogic
 
+[![Rust](https://github.com/Vandesm14/complogic/actions/workflows/rust.yml/badge.svg)](https://github.com/Vandesm14/complogic/actions/workflows/rust.yml)
+
 Simulate logic gates on a compiled single-instruction VM with Rust.
 
 ## Why?
