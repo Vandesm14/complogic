@@ -64,8 +64,7 @@ impl Simulation {
       registers: vec![false; immediate_count],
       ops: vec![],
       immediate_count,
-      // Subtracting 1 since count is 1-indexed
-      incrementer: Incrementer::set(immediate_count - 1),
+      incrementer: Incrementer::set(immediate_count),
     }
   }
 

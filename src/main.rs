@@ -1,21 +1,65 @@
 use std::rc::Rc;
 
-use complogic::{Or, Simulation};
+use complogic::{And, Gate, Simulation, Xor};
+
+#[derive(Debug)]
+struct HalfAdder {
+  a: usize,
+  b: usize,
+  s: usize,
+  c: usize,
+}
+
+impl Gate for HalfAdder {
+  fn create(&self, incrementer: &complogic::Incrementer) -> complogic::Ops {
+    let xor = Rc::new(Xor {
+      a: self.a,
+      b: self.b,
+      out: self.s,
+    });
+    let and = Rc::new(And {
+      a: self.a,
+      b: self.b,
+      out: self.c,
+    });
+
+    let mut ops: complogic::Ops = vec![];
+    ops.extend(xor.create(incrementer));
+    ops.extend(and.create(incrementer));
+
+    ops
+  }
+}
 
 fn main() {
   let mut simulation = Simulation::new(2);
   let [a, b] = [0, 1];
 
-  let or = Rc::new(Or {
-    a,
-    b,
-    out: simulation.incrementer.next(),
-  });
+  let s = simulation.alloc();
+  let c = simulation.alloc();
 
-  simulation.compile(vec![or.clone()]);
+  let half_adder = Rc::new(HalfAdder { a, b, s, c });
+
+  simulation.compile(vec![half_adder.clone()]);
+
+  simulation.run(&[false, false]);
+  assert!(!simulation.registers[half_adder.s]);
+  assert!(!simulation.registers[half_adder.c]);
+
+  simulation.run(&[false, true]);
+  assert!(simulation.registers[half_adder.s]);
+  assert!(!simulation.registers[half_adder.c]);
+
+  simulation.run(&[true, false]);
+  assert!(simulation.registers[half_adder.s]);
+  assert!(!simulation.registers[half_adder.c]);
+
   simulation.run(&[true, true]);
+  assert!(!simulation.registers[half_adder.s]);
+  assert!(simulation.registers[half_adder.c]);
 
-  println!("Or: {}", simulation.register(or.out));
+  println!("S: {}", simulation.register(half_adder.s));
+  println!("C: {}", simulation.register(half_adder.c));
   println!("Registers: {:?}", simulation.registers);
   println!("Ops: {:?}", simulation.ops);
 }
@@ -56,7 +100,7 @@ mod tests {
     let and = Rc::new(And {
       a,
       b,
-      out: simulation.incrementer.next(),
+      out: simulation.alloc(),
     });
 
     simulation.compile(vec![and.clone()]);
@@ -76,7 +120,7 @@ mod tests {
     let or = Rc::new(Or {
       a,
       b,
-      out: simulation.incrementer.next(),
+      out: simulation.alloc(),
     });
 
     simulation.compile(vec![or.clone()]);
@@ -138,5 +182,34 @@ mod tests {
     simulation.run(&[true, true]);
     assert!(!simulation.registers[q]);
     assert!(!simulation.registers[qn]);
+  }
+
+  #[test]
+  fn half_adder() {
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
+
+    let s = simulation.alloc();
+    let c = simulation.alloc();
+
+    let half_adder = Rc::new(HalfAdder { a, b, s, c });
+
+    simulation.compile(vec![half_adder.clone()]);
+
+    simulation.run(&[false, false]);
+    assert!(!simulation.registers[half_adder.s]);
+    assert!(!simulation.registers[half_adder.c]);
+
+    simulation.run(&[false, true]);
+    assert!(simulation.registers[half_adder.s]);
+    assert!(!simulation.registers[half_adder.c]);
+
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[half_adder.s]);
+    assert!(!simulation.registers[half_adder.c]);
+
+    simulation.run(&[true, true]);
+    assert!(!simulation.registers[half_adder.s]);
+    assert!(simulation.registers[half_adder.c]);
   }
 }
