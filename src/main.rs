@@ -22,7 +22,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-  use complogic::{And, Incrementer, NandOp, Or};
+  use complogic::{And, Incrementer, NandOp, Nor, Or};
 
   use super::*;
 
@@ -94,36 +94,49 @@ mod tests {
     assert!(simulation.registers[or.out]);
   }
 
-  //   #[test]
-  //   fn rs_nor_latch() {
-  //     let mut simulation = Simulation::new(2);
-  //     let [s, r] = [0, 1];
+  #[test]
+  fn rs_nor_latch() {
+    let mut simulation = Simulation::new(2);
+    let [s, r] = [0, 1];
 
-  //     let q = simulation.alloc_one();
-  //     let qn = simulation.alloc_one();
+    let q = simulation.alloc();
+    let qn = simulation.alloc();
 
-  //     simulation.add_gate_with_out(Gate::Nor(r, qn), q);
-  //     simulation.add_gate_with_out(Gate::Nor(s, q), qn);
+    // simulation.add_gate_with_out(Gate::Nor(r, qn), q);
+    // simulation.add_gate_with_out(Gate::Nor(s, q), qn);
 
-  //     // Reset the latch (due to the nature of logic, it starts as set when it's created)
-  //     simulation.run(&[false, true]);
+    simulation.compile(vec![
+      Rc::new(Nor {
+        a: r,
+        b: qn,
+        out: q,
+      }),
+      Rc::new(Nor {
+        a: s,
+        b: q,
+        out: qn,
+      }),
+    ]);
 
-  //     simulation.run(&[false, false]);
-  //     assert!(!simulation.registers[q]);
-  //     assert!(simulation.registers[qn]);
+    // Reset the latch (due to the nature of logic, it starts as set when it's created)
+    simulation.run(&[false, true]);
 
-  //     // FIXME: I think it's incorrect for it to need 2 ticks to set?
-  //     simulation.run(&[true, false]);
-  //     simulation.run(&[true, false]);
-  //     assert!(simulation.registers[q]);
-  //     assert!(!simulation.registers[qn]);
+    simulation.run(&[false, false]);
+    assert!(!simulation.registers[q]);
+    assert!(simulation.registers[qn]);
 
-  //     simulation.run(&[false, true]);
-  //     assert!(!simulation.registers[q]);
-  //     assert!(simulation.registers[qn]);
+    // FIXME: I think it's incorrect for it to need 2 ticks to set?
+    simulation.run(&[true, false]);
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[q]);
+    assert!(!simulation.registers[qn]);
 
-  //     simulation.run(&[true, true]);
-  //     assert!(!simulation.registers[q]);
-  //     assert!(!simulation.registers[qn]);
-  //   }
+    simulation.run(&[false, true]);
+    assert!(!simulation.registers[q]);
+    assert!(simulation.registers[qn]);
+
+    simulation.run(&[true, true]);
+    assert!(!simulation.registers[q]);
+    assert!(!simulation.registers[qn]);
+  }
 }
