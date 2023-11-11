@@ -1,14 +1,11 @@
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-enum Op {
-  And(usize, usize, usize),
-  Not(usize, usize),
-}
-
-type Ops = Vec<Op>;
+struct NandOp(usize, usize, usize);
+type Ops = Vec<NandOp>;
 
 enum Gate {
+  Nand(usize, usize),
   And(usize, usize),
   Not(usize),
   Or(usize, usize),
@@ -17,14 +14,19 @@ enum Gate {
 impl Gate {
   fn add_to(&self, out: usize, simulation: &mut Simulation) {
     match *self {
-      Self::And(a, b) => simulation.add_op(Op::And(a, b, out)),
-      Self::Not(a) => simulation.add_op(Op::Not(a, out)),
+      Self::Nand(a, b) => simulation.add_op(NandOp(a, b, out)),
+      Self::Not(a) => {
+        simulation.add_gate_with_out(Gate::Nand(a, a), out);
+      }
+      Self::And(a, b) => {
+        let nand = simulation.add_gate(Gate::Nand(a, b));
+        simulation.add_gate_with_out(Gate::Not(nand), out);
+      }
       Self::Or(a, b) => {
-        let not_a = simulation.add_gate(Gate::Not(a));
-        let not_b = simulation.add_gate(Gate::Not(b));
-        let and = simulation.add_gate(Gate::And(not_a, not_b));
+        let nand_a = simulation.add_gate(Gate::Nand(a, a));
+        let nand_b = simulation.add_gate(Gate::Nand(b, b));
 
-        simulation.add_gate_with_out(Gate::Not(and), out);
+        simulation.add_gate_with_out(Gate::Nand(nand_a, nand_b), out);
       }
     }
   }
@@ -67,14 +69,10 @@ impl Simulation {
     });
 
     self.ops.iter().for_each(|op| match *op {
-      Op::And(a, b, out) => {
+      NandOp(a, b, out) => {
         let a = self.registers[a];
         let b = self.registers[b];
-        self.registers[out] = a && b;
-      }
-      Op::Not(a, out) => {
-        let a = self.registers[a];
-        self.registers[out] = !a;
+        self.registers[out] = !(a && b);
       }
     });
   }
@@ -98,7 +96,7 @@ impl Simulation {
     gate.add_to(out, self);
   }
 
-  fn add_op(&mut self, op: Op) {
+  fn add_op(&mut self, op: NandOp) {
     self.ops.push(op);
   }
 }
@@ -120,51 +118,24 @@ mod tests {
   use super::*;
 
   #[test]
-  fn op_and() {
+  fn op_nand() {
     let mut simulation = Simulation {
-      registers: vec![true, true, false],
-      ops: vec![Op::And(0, 1, 2)],
-      immediate_count: 0,
+      registers: vec![false, false, false],
+      ops: vec![NandOp(0, 1, 2)],
+      immediate_count: 2,
     };
 
-    simulation.run(&[]);
+    simulation.run(&[false, false]);
     assert!(simulation.registers[2]);
-  }
 
-  #[test]
-  fn op_and_false() {
-    let mut simulation = Simulation {
-      registers: vec![true, false, false],
-      ops: vec![Op::And(0, 1, 2)],
-      immediate_count: 0,
-    };
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[2]);
 
-    simulation.run(&[]);
+    simulation.run(&[false, true]);
+    assert!(simulation.registers[2]);
+
+    simulation.run(&[true, true]);
     assert!(!simulation.registers[2]);
-  }
-
-  #[test]
-  fn op_not() {
-    let mut simulation = Simulation {
-      registers: vec![true, false],
-      ops: vec![Op::Not(0, 1)],
-      immediate_count: 0,
-    };
-
-    simulation.run(&[]);
-    assert!(!simulation.registers[1]);
-  }
-
-  #[test]
-  fn op_not_false() {
-    let mut simulation = Simulation {
-      registers: vec![false, false],
-      ops: vec![Op::Not(0, 1)],
-      immediate_count: 0,
-    };
-
-    simulation.run(&[]);
-    assert!(simulation.registers[1]);
   }
 
   #[test]
