@@ -313,34 +313,4 @@ mod tests {
     assert!(!simulation.registers[q]);
     assert!(!simulation.registers[qn]);
   }
-
-  // #[test]
-  // fn t_flip_flop() {
-  //   let mut simulation = Simulation::new(2);
-
-  //   let t = simulation.alloc_one();
-  //   let clk = simulation.alloc_one();
-
-  //   let q = simulation.alloc_one();
-  //   let qn = simulation.alloc_one();
-
-  //   let and_top_1 = simulation.add_gate(Gate::And(t, clk));
-  //   let and_top_2 = simulation.add_gate(Gate::And(q, and_top_1));
-
-  //   let and_bottom_1 = simulation.add_gate(Gate::And(t, clk));
-  //   let and_bottom_2 = simulation.add_gate(Gate::And(qn, and_bottom_1));
-
-  //   let or_top_out = simulation.alloc_one();
-  //   let or_top =
-  //     simulation.add_gate_with_out(Gate::Or(and_top_2, or_top_out), or_top_out);
-
-  //   let or_bottom_out = simulation.alloc_one();
-  //   let or_bottom = simulation
-  //     .add_gate_with_out(Gate::Or(and_bottom_2, or_bottom_out), or_bottom_out);
-
-  //   simulation.add_gate_with_out(Gate::Or(or_bottom_out, q), q);
-  //   simulation.add_gate_with_out(Gate::Or(or_top_out, qn), qn);
-
-  //   simulation.run(&[false, false]);
-  // }
 }
