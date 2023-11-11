@@ -1,33 +1,13 @@
 use crate::simulation::{NandOp, Simulation};
 
-// pub trait Gate {
-//   fn add_to(
-//     &self,
-//     out: usize,
-//     simulation: &mut Simulation,
-//     sourcemap: bool,
-//   ) -> usize;
-// }
-
-// struct AndGate(usize, usize);
-
-// impl Gate for AndGate {
-//   fn add_to(
-//     &self,
-//     out: usize,
-//     simulation: &mut Simulation,
-//     sourcemap: bool,
-//   ) -> usize {
-//     let nand = simulation.add_quiet_gate(Gate::Nand(self.0, self.1));
-//     simulation.add_quiet_gate_with_out(Gate::Not(nand), out);
-
-//     if sourcemap {
-//       simulation.add_sourcemap("And".to_owned(), vec![self.0, self.1], out);
-//     }
-
-//     out
-//   }
-// }
+pub trait GateLike {
+  fn add_to(
+    &self,
+    out: usize,
+    simulation: &mut Simulation,
+    sourcemap: bool,
+  ) -> usize;
+}
 
 pub enum Gate {
   Nand(usize, usize),
@@ -38,13 +18,13 @@ pub enum Gate {
   Xor(usize, usize),
 }
 
-impl Gate {
-  pub fn add_to(
+impl GateLike for Gate {
+  fn add_to(
     &self,
     out: usize,
     simulation: &mut Simulation,
     sourcemap: bool,
-  ) {
+  ) -> usize {
     match *self {
       Self::Nand(a, b) => simulation.add_op(NandOp(a, b, out)),
       Self::Not(a) => {
@@ -89,5 +69,7 @@ impl Gate {
         }
       }
     }
+
+    out
   }
 }

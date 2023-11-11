@@ -1,4 +1,4 @@
-use crate::gates::Gate;
+use crate::{gates::Gate, GateLike};
 
 #[derive(Debug, Clone)]
 pub struct NandOp(pub usize, pub usize, pub usize);
