@@ -15,9 +15,7 @@ impl Gate {
   fn add_to(&self, out: usize, simulation: &mut Simulation) {
     match *self {
       Self::Nand(a, b) => simulation.add_op(NandOp(a, b, out)),
-      Self::Not(a) => {
-        simulation.add_gate_with_out(Gate::Nand(a, a), out);
-      }
+      Self::Not(a) => simulation.add_gate_with_out(Gate::Nand(a, a), out),
       Self::And(a, b) => {
         let nand = simulation.add_gate(Gate::Nand(a, b));
         simulation.add_gate_with_out(Gate::Not(nand), out);
@@ -25,7 +23,6 @@ impl Gate {
       Self::Or(a, b) => {
         let nand_a = simulation.add_gate(Gate::Nand(a, a));
         let nand_b = simulation.add_gate(Gate::Nand(b, b));
-
         simulation.add_gate_with_out(Gate::Nand(nand_a, nand_b), out);
       }
     }
