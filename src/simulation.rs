@@ -68,10 +68,8 @@ impl Simulation {
     }
   }
 
-  /// Resets the simulation values (good as new!)
-  pub fn reset(&mut self) {
-    self.registers = vec![];
-    self.ops = vec![];
+  /// Resets the incrementer
+  pub fn reset_incrementer(&mut self) {
     self.incrementer = Incrementer::set(self.immediate_count);
   }
 
