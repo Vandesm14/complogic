@@ -3,6 +3,8 @@ use std::{borrow::Cow, collections::HashMap};
 use eframe::egui::{self, Checkbox, TextStyle};
 use egui_node_graph::*;
 
+use crate::Simulation;
+
 // ========= First, define your user data types =============
 
 /// The NodeData holds a custom data struct inside each node. It's useful to
@@ -71,6 +73,7 @@ impl ValueType {
 pub enum NodeTempl {
   And,
   Immediate,
+  Inspector,
 }
 
 /// The response type is used to encode side-effects produced when drawing a
@@ -128,6 +131,7 @@ impl NodeTemplateTrait for NodeTempl {
     Cow::Borrowed(match self {
       NodeTempl::And => "And Gate",
       NodeTempl::Immediate => "Immediate",
+      NodeTempl::Inspector => "Inspector",
     })
   }
 
@@ -138,7 +142,7 @@ impl NodeTemplateTrait for NodeTempl {
   ) -> Vec<&'static str> {
     match self {
       NodeTempl::And => vec!["Gate"],
-      NodeTempl::Immediate => vec!["Tools"],
+      NodeTempl::Immediate | NodeTempl::Inspector => vec!["Tools"],
     }
   }
 
@@ -215,7 +219,27 @@ impl NodeTemplateTrait for NodeTempl {
           // The input parameter kind. This allows defining whether a
           // parameter accepts input connections and/or an inline
           // widget to set its value.
-          InputParamKind::ConnectionOrConstant,
+          InputParamKind::ConstantOnly,
+          true,
+        );
+        output_scalar(graph, "out");
+      }
+      NodeTempl::Inspector => {
+        // The first input param doesn't use the closure so we can comment
+        // it in more detail.
+        graph.add_input_param(
+          node_id,
+          // This is the name of the parameter. Can be later used to
+          // retrieve the value. Parameter names should be unique.
+          "A".into(),
+          // The data type for this input. In this case, a scalar
+          DataType::Scalar,
+          // The value type for this input. We store zero as default
+          ValueType::Scalar { value: false },
+          // The input parameter kind. This allows defining whether a
+          // parameter accepts input connections and/or an inline
+          // widget to set its value.
+          InputParamKind::ConnectionOnly,
           true,
         );
         output_scalar(graph, "out");
@@ -232,7 +256,7 @@ impl NodeTemplateIter for AllNodeTempls {
     // This function must return a list of node kinds, which the node finder
     // will use to display it to the user. Crates like strum can reduce the
     // boilerplate in enumerating all variants of an enum.
-    vec![NodeTempl::And, NodeTempl::Immediate]
+    vec![NodeTempl::And, NodeTempl::Immediate, NodeTempl::Inspector]
   }
 }
 
@@ -329,6 +353,8 @@ pub struct NodeGraphExample {
   state: MyEditorState,
 
   user_state: GraphState,
+
+  simulation: Simulation,
 }
 
 #[cfg(feature = "persistence")]
@@ -483,9 +509,16 @@ pub fn evaluate_node(
     NodeTempl::And => {
       let a = evaluator.input_scalar("A")?;
       let b = evaluator.input_scalar("B")?;
+
+      dbg!(a, b);
+
       evaluator.output_scalar("out", a && b)
     }
     NodeTempl::Immediate => {
+      let a = evaluator.input_scalar("A")?;
+      evaluator.output_scalar("out", a)
+    }
+    NodeTempl::Inspector => {
       let a = evaluator.input_scalar("A")?;
       evaluator.output_scalar("out", a)
     }

@@ -42,7 +42,7 @@ impl Default for Incrementer {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Simulation {
   /// Registers that note the inputs and outputs of logic gates
   pub registers: Vec<bool>,
