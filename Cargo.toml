@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 eframe = "0.21.0"
-egui_node_graph = { git = "https://github.com/setzer22/egui_node_graph", rev = "3068b8cd9bad3a419682af273c01cd700bda2739" }
+egui_node_graph = { git = "https://github.com/setzer22/egui_node_graph", rev = "3068b8cd9bad3a419682af273c01cd700bda2739", features = ["persistence"]}
 anyhow = "1.0"
 serde = { version = "1.0", optional = true }
 
