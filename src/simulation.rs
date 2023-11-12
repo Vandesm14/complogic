@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::gates::Gate;
 
 #[derive(Debug, Clone)]
@@ -99,7 +97,7 @@ impl Simulation {
   }
 
   /// Compiles a list of gates into Ops
-  pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) -> usize {
+  pub fn compile(&mut self, gate: Vec<&Gate>) -> usize {
     self.ops = vec![];
 
     // Cloning incrementer since we are generating ops and we don't
@@ -201,16 +199,16 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [a, b] = [0, 1];
 
-    let and = Rc::new(And {
+    let and = And {
       a,
       b,
       out: simulation.alloc(),
-    });
+    };
 
     // When compiling, we should not increment the incrementer
-    simulation.compile(vec![and.clone()]);
-    simulation.compile(vec![and.clone()]);
-    let reg_count = simulation.compile(vec![and.clone()]);
+    simulation.compile(vec![&Gate::from(and)]);
+    simulation.compile(vec![&Gate::from(and)]);
+    let reg_count = simulation.compile(vec![&Gate::from(and)]);
 
     // Two immediates plus two outputs for the And's internal Nand gates
     assert_eq!(reg_count, 4);

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, rc::Rc};
+use std::{borrow::Cow, collections::HashMap};
 
 use eframe::{
   egui::{self, Checkbox, TextStyle},
@@ -100,7 +100,7 @@ pub enum MyResponse {
 pub struct GraphState {
   pub active_node: Option<NodeId>,
   pub simulation: Simulation,
-  pub gates: HashMap<NodeId, Rc<dyn Gate>>,
+  pub gates: HashMap<NodeId, Gate>,
   pub outs_to_regs: HashMap<OutputId, usize>,
   pub regs_to_outs: HashMap<usize, OutputId>,
   pub immediates: HashMap<OutputId, (usize, bool)>,
@@ -496,7 +496,7 @@ impl eframe::App for NodeGraphExample {
 
             let gate = And { a, b, out };
 
-            self.user_state.gates.insert(id, Rc::new(gate));
+            self.user_state.gates.insert(id, Gate::from(gate));
           }
 
           // TODO: Implement
@@ -550,7 +550,7 @@ impl eframe::App for NodeGraphExample {
       self
         .user_state
         .simulation
-        .compile(self.user_state.gates.values().cloned().collect::<Vec<_>>());
+        .compile(self.user_state.gates.values().collect::<Vec<_>>());
       println!("Compiled: {:?}", self.user_state.simulation);
 
       let mut immediates: Vec<bool> =
