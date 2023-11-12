@@ -510,8 +510,6 @@ pub fn evaluate_node(
       let a = evaluator.input_scalar("A")?;
       let b = evaluator.input_scalar("B")?;
 
-      dbg!(a, b);
-
       evaluator.output_scalar("out", a && b)
     }
     NodeTempl::Immediate => {
