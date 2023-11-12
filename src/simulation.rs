@@ -68,6 +68,13 @@ impl Simulation {
     }
   }
 
+  /// Resets the simulation values (good as new!)
+  pub fn reset(&mut self) {
+    self.registers = vec![];
+    self.ops = vec![];
+    self.incrementer = Incrementer::set(self.immediate_count);
+  }
+
   /// Runs the VM with the given immediates
   pub fn run(&mut self, immediates: &[bool]) {
     if immediates.len() != self.immediate_count {

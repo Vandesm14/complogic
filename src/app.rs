@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap, rc::Rc};
 use eframe::egui::{self, Checkbox, TextStyle};
 use egui_node_graph::*;
 
-use crate::{And, Gate, Incrementer, Simulation};
+use crate::{And, Gate, Simulation};
 
 // ========= First, define your user data types =============
 
@@ -406,8 +406,7 @@ impl eframe::App for NodeGraphExample {
     // Clear the gates
     self.user_state.gates.clear();
     self.user_state.outs_to_regs.clear();
-    self.user_state.simulation.incrementer =
-      Incrementer::set(self.user_state.simulation.immediate_count);
+    self.user_state.simulation.reset();
 
     for node in self.state.graph.nodes.iter() {
       let (id, data) = node;
@@ -459,9 +458,9 @@ impl eframe::App for NodeGraphExample {
         NodeTempl::Immediate => {}
         NodeTempl::Inspector => {}
       }
-
-      println!("Gates: {:?}", self.user_state.gates.clone());
     }
+
+    println!("Gates: {:?}", self.user_state.gates.clone());
 
     for node_response in graph_response.node_responses {
       // Here, we ignore all other graph events. But you may find
