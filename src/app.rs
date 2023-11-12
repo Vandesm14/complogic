@@ -99,6 +99,8 @@ pub struct GraphState {
   pub simulation: Simulation,
   pub gates: HashMap<NodeId, Rc<dyn Gate>>,
   pub outs_to_regs: HashMap<OutputId, usize>,
+  pub immediates: HashMap<OutputId, bool>,
+  pub connections: usize,
 }
 
 // =========== Then, you need to implement some traits ============
@@ -403,64 +405,70 @@ impl eframe::App for NodeGraphExample {
       })
       .inner;
 
-    // Clear the gates
-    self.user_state.gates.clear();
-    self.user_state.outs_to_regs.clear();
-    self.user_state.simulation.reset();
+    // If the graph has changed, we need to update our internal state
+    let new_connection_count = self.state.graph.connections.len();
+    if new_connection_count != self.user_state.connections {
+      self.user_state.connections = new_connection_count;
 
-    for node in self.state.graph.nodes.iter() {
-      let (id, data) = node;
-      let template = data.user_data.template;
+      // Clear the gates
+      self.user_state.gates.clear();
+      self.user_state.outs_to_regs.clear();
+      self.user_state.simulation.reset();
 
-      match template {
-        NodeTempl::And => {
-          let mut in_ids = data.input_ids();
-          let mut out_ids = data.output_ids();
+      for node in self.state.graph.nodes.iter() {
+        let (id, data) = node;
+        let template = data.user_data.template;
 
-          let a_out = self.state.graph.connection(in_ids.next().unwrap());
-          let b_out = self.state.graph.connection(in_ids.next().unwrap());
+        match template {
+          NodeTempl::And => {
+            let mut in_ids = data.input_ids();
+            let mut out_ids = data.output_ids();
 
-          if a_out.is_none() || b_out.is_none() {
-            continue;
+            let a_out = self.state.graph.connection(in_ids.next().unwrap());
+            let b_out = self.state.graph.connection(in_ids.next().unwrap());
+
+            if a_out.is_none() || b_out.is_none() {
+              continue;
+            }
+
+            let a_out = a_out.unwrap();
+            let b_out = b_out.unwrap();
+
+            let a = match self.user_state.outs_to_regs.get(&a_out) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.simulation.alloc();
+                self.user_state.outs_to_regs.insert(a_out, reg);
+                reg
+              }
+            };
+            let b = match self.user_state.outs_to_regs.get(&b_out) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.simulation.alloc();
+                self.user_state.outs_to_regs.insert(b_out, reg);
+                reg
+              }
+            };
+
+            let out_id = out_ids.next().unwrap();
+
+            let out = self.user_state.simulation.alloc();
+            self.user_state.outs_to_regs.insert(out_id, out);
+
+            let gate = And { a, b, out };
+
+            self.user_state.gates.insert(id, Rc::new(gate));
           }
 
-          let a_out = a_out.unwrap();
-          let b_out = b_out.unwrap();
-
-          let a = match self.user_state.outs_to_regs.get(&a_out) {
-            Some(reg) => *reg,
-            None => {
-              let reg = self.user_state.simulation.alloc();
-              self.user_state.outs_to_regs.insert(a_out, reg);
-              reg
-            }
-          };
-          let b = match self.user_state.outs_to_regs.get(&b_out) {
-            Some(reg) => *reg,
-            None => {
-              let reg = self.user_state.simulation.alloc();
-              self.user_state.outs_to_regs.insert(b_out, reg);
-              reg
-            }
-          };
-
-          let out_id = out_ids.next().unwrap();
-
-          let out = self.user_state.simulation.alloc();
-          self.user_state.outs_to_regs.insert(out_id, out);
-
-          let gate = And { a, b, out };
-
-          self.user_state.gates.insert(id, Rc::new(gate));
+          // TODO: Implement
+          NodeTempl::Immediate => {}
+          NodeTempl::Inspector => {}
         }
-
-        // TODO: Implement
-        NodeTempl::Immediate => {}
-        NodeTempl::Inspector => {}
       }
-    }
 
-    println!("Gates: {:?}", self.user_state.gates.clone());
+      println!("Gates: {:?}", self.user_state.gates.clone());
+    }
 
     for node_response in graph_response.node_responses {
       // Here, we ignore all other graph events. But you may find
