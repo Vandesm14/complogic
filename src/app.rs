@@ -422,24 +422,37 @@ impl eframe::App for NodeGraphExample {
       self.user_state.simulation.immediate_count = 0;
 
       // Run through all immediates first since they are the first in the register stack
-      for (i, node) in self.state.graph.nodes.iter().enumerate() {
+      for (i, node) in self
+        .state
+        .graph
+        .nodes
+        .iter()
+        .filter(|node| {
+          matches!(node.1.user_data.template, NodeTempl::Immediate)
+        })
+        .enumerate()
+      {
         let (_, data) = node;
-        let template = data.user_data.template;
 
-        if let NodeTempl::Immediate = template {
-          let mut out_ids = data.output_ids();
-          let out_id = out_ids.next().unwrap();
+        let mut out_ids = data.output_ids();
+        let out_id = out_ids.next().unwrap();
 
-          self.user_state.immediates.insert(out_id, false);
-          self.user_state.outs_to_regs.insert(out_id, i);
-          self.user_state.simulation.immediate_count += 1;
-        }
+        self.user_state.immediates.insert(out_id, false);
+        self.user_state.outs_to_regs.insert(out_id, i);
+        self.user_state.simulation.immediate_count += 1;
       }
 
       // Reset the incrementer since we are recompiling
       self.user_state.simulation.reset_incrementer();
 
-      for node in self.state.graph.nodes.iter() {
+      // Run through all nodes (except immediates) and add them to the simulation
+      for node in self
+        .state
+        .graph
+        .nodes
+        .iter()
+        .filter(|node| matches!(node.1.user_data.template, NodeTempl::And))
+      {
         let (id, data) = node;
         let template = data.user_data.template;
 
@@ -492,6 +505,11 @@ impl eframe::App for NodeGraphExample {
       }
 
       println!("Gates: {:?}", self.user_state.gates.clone());
+
+      self
+        .user_state
+        .simulation
+        .compile(self.user_state.gates.values().cloned().collect::<Vec<_>>());
       println!("Simulation: {:?}", self.user_state.simulation);
     }
 
