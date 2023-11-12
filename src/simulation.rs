@@ -104,12 +104,12 @@ impl Simulation {
 
     // Cloning incrementer since we are generating ops and we don't
     // want to change the incrementer for top-level gates (what we are compiling)
-    // let mut incr = self.incrementer.clone();
+    let mut incrementer = self.incrementer.clone();
     gate.into_iter().for_each(|gate| {
-      self.ops.extend(gate.create(&mut self.incrementer));
+      self.ops.extend(gate.create(&mut incrementer));
     });
 
-    let reg_count = self.incrementer.val;
+    let reg_count = incrementer.val;
     self.registers = vec![false; reg_count];
 
     reg_count
@@ -126,6 +126,8 @@ impl Simulation {
 
 #[cfg(test)]
 mod tests {
+  use crate::And;
+
   use super::*;
 
   #[test]
@@ -190,6 +192,27 @@ mod tests {
 
     // Two immediates plus our allocs, total register count is 4
     let reg_count = simulation.compile(vec![]);
+    assert_eq!(reg_count, 4);
+  }
+
+  #[test]
+  /// Test that compiling doesn't increment the incrementer
+  fn keep_incrementer_on_compile() {
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
+
+    let and = Rc::new(And {
+      a,
+      b,
+      out: simulation.alloc(),
+    });
+
+    // When compiling, we should not increment the incrementer
+    simulation.compile(vec![and.clone()]);
+    simulation.compile(vec![and.clone()]);
+    let reg_count = simulation.compile(vec![and.clone()]);
+
+    // Two immediates plus two outputs for the And's internal Nand gates
     assert_eq!(reg_count, 4);
   }
 }
