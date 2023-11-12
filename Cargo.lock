@@ -592,6 +592,7 @@ dependencies = [
  "eframe",
  "egui_node_graph",
  "serde",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

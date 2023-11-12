@@ -1,6 +1,9 @@
 use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
-use eframe::egui::{self, Checkbox, TextStyle};
+use eframe::{
+  egui::{self, Checkbox, TextStyle},
+  epaint::ecolor,
+};
 use egui_node_graph::*;
 
 use crate::{And, Gate, Simulation};
@@ -108,7 +111,7 @@ pub struct GraphState {
 
 // A trait for the data types, to tell the library how to display them
 impl DataTypeTrait<GraphState> for DataType {
-  fn data_type_color(&self, _user_state: &mut GraphState) -> egui::Color32 {
+  fn data_type_color(&self, _user_state: &mut GraphState) -> ecolor::Color32 {
     match self {
       DataType::Scalar => egui::Color32::from_rgb(38, 109, 211),
     }
