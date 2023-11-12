@@ -99,7 +99,8 @@ pub struct GraphState {
   pub simulation: Simulation,
   pub gates: HashMap<NodeId, Rc<dyn Gate>>,
   pub outs_to_regs: HashMap<OutputId, usize>,
-  pub immediates: HashMap<OutputId, bool>,
+  pub regs_to_outs: HashMap<usize, OutputId>,
+  pub immediates: HashMap<OutputId, (usize, bool)>,
   pub connections: usize,
 }
 
@@ -432,7 +433,7 @@ impl eframe::App for NodeGraphExample {
           Err(_) => false,
         };
 
-      if let Some(prev_value) = self.user_state.immediates.get(&out_id) {
+      if let Some((_, prev_value)) = self.user_state.immediates.get(&out_id) {
         if *prev_value != value {
           changed = true;
         }
@@ -440,7 +441,10 @@ impl eframe::App for NodeGraphExample {
         changed = true;
       }
 
-      self.user_state.immediates.insert(out_id, value);
+      self
+        .user_state
+        .immediates
+        .insert(out_id, (self.user_state.simulation.immediate_count, value));
       self.user_state.outs_to_regs.insert(out_id, i);
       self.user_state.simulation.immediate_count += 1;
     }
@@ -451,10 +455,9 @@ impl eframe::App for NodeGraphExample {
     // If the graph has changed, we need to update our internal state
     //
     // Note: Because this application is a GUI, we update every frame
-    // Because of this, we can just check the number of connections as
-    // opposed to checking the actual data since the user will need to
-    // disconnect something before connecting it, so the length will
-    // always change.
+    // so we can simply check the number of connections as opposed to
+    // checking the actual data since the user will need to disconnect
+    // something before connecting it so the length will always change.
     let new_connection_count = self.state.graph.connections.len();
     if new_connection_count != self.user_state.connections {
       changed = true;
@@ -526,15 +529,29 @@ impl eframe::App for NodeGraphExample {
     }
 
     if changed {
-      println!();
-      println!("Gates: {:?}", self.user_state.gates);
-      println!("Immediates: {:?}", self.user_state.immediates);
+      // println!();
+      // println!("Gates: {:?}", self.user_state.gates);
+      // println!("Immediates: {:?}", self.user_state.immediates);
 
       self
         .user_state
         .simulation
         .compile(self.user_state.gates.values().cloned().collect::<Vec<_>>());
-      println!("Simulation: {:?}", self.user_state.simulation);
+      println!("Compiled: {:?}", self.user_state.simulation);
+
+      let mut immediates: Vec<bool> =
+        vec![false; self.user_state.simulation.immediate_count];
+
+      self
+        .user_state
+        .immediates
+        .iter()
+        .for_each(|(_, (index, val))| {
+          immediates[*index] = *val;
+        });
+
+      self.user_state.simulation.run(&immediates);
+      println!("Ran: {:?}", self.user_state.simulation);
     }
 
     for node_response in graph_response.node_responses {
