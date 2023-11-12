@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, rc::Rc};
+use std::{borrow::Cow, collections::HashMap, rc::Rc, sync::atomic::Ordering};
 
 use eframe::egui::{self, Checkbox, TextStyle};
 use egui_node_graph::*;
@@ -422,27 +422,22 @@ impl eframe::App for NodeGraphExample {
       // Clear the gates
       self.user_state.gates.clear();
       self.user_state.outs_to_regs.clear();
-
       self.user_state.simulation.immediate_count = 0;
 
       // Run through all immediates first since they are the first in the register stack
-      for (i, node) in self
-        .state
-        .graph
-        .nodes
-        .iter()
-        .filter(|node| {
-          matches!(node.1.user_data.template, NodeTempl::Immediate)
-        })
-        .enumerate()
-      {
+      for node in self.state.graph.nodes.iter().filter(|node| {
+        matches!(node.1.user_data.template, NodeTempl::Immediate)
+      }) {
         let (_, data) = node;
 
         let mut out_ids = data.output_ids();
         let out_id = out_ids.next().unwrap();
 
-        self.user_state.outs_to_regs.insert(out_id, i);
-        self.user_state.simulation.immediate_count = i + 1;
+        self
+          .user_state
+          .outs_to_regs
+          .insert(out_id, self.user_state.simulation.immediate_count);
+        self.user_state.simulation.immediate_count += 1;
       }
 
       // Reset the incrementer since we are recompiling
