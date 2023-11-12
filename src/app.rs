@@ -517,11 +517,15 @@ impl eframe::App for NodeGraphExample {
       // If the immediate is connected to our graph, capture the value.
       // Else, we do nothing because nothing references it (it's dead to us)
       if let Some(reg) = self.user_state.outs_to_regs.get(&out_id) {
-        let value =
-          match evaluate_node(&self.state.graph, id, &mut HashMap::new()) {
-            Ok(value) => value.try_to_scalar().unwrap_or(false),
-            Err(_) => false,
-          };
+        let value = match evaluate_node(
+          &self.state.graph,
+          id,
+          &mut HashMap::new(),
+          &self.user_state,
+        ) {
+          Ok(value) => value.try_to_scalar().unwrap_or(false),
+          Err(_) => false,
+        };
 
         if let Some((_, prev_value)) = self.user_state.immediates.get(&out_id) {
           if *prev_value != value {
@@ -577,11 +581,15 @@ impl eframe::App for NodeGraphExample {
 
     if let Some(node) = self.user_state.active_node {
       if self.state.graph.nodes.contains_key(node) {
-        let text =
-          match evaluate_node(&self.state.graph, node, &mut HashMap::new()) {
-            Ok(value) => format!("The result is: {:?}", value),
-            Err(err) => format!("Execution error: {}", err),
-          };
+        let text = match evaluate_node(
+          &self.state.graph,
+          node,
+          &mut HashMap::new(),
+          &self.user_state,
+        ) {
+          Ok(value) => format!("The result is: {:?}", value),
+          Err(err) => format!("Execution error: {}", err),
+        };
         ctx.debug_painter().text(
           egui::pos2(10.0, 35.0),
           egui::Align2::LEFT_TOP,
@@ -603,6 +611,7 @@ pub fn evaluate_node(
   graph: &MyGraph,
   node_id: NodeId,
   outputs_cache: &mut OutputsCache,
+  user_state: &GraphState,
 ) -> anyhow::Result<ValueType> {
   // To solve a similar problem as creating node types above, we define an
   // Evaluator as a convenience. It may be overkill for this small example,
@@ -626,10 +635,20 @@ pub fn evaluate_node(
         node_id,
       }
     }
-    fn evaluate_input(&mut self, name: &str) -> anyhow::Result<ValueType> {
+    fn evaluate_input(
+      &mut self,
+      name: &str,
+      user_state: &GraphState,
+    ) -> anyhow::Result<ValueType> {
       // Calling `evaluate_input` recursively evaluates other nodes in the
       // graph until the input value for a paramater has been computed.
-      evaluate_input(self.graph, self.node_id, name, self.outputs_cache)
+      evaluate_input(
+        self.graph,
+        self.node_id,
+        name,
+        self.outputs_cache,
+        user_state,
+      )
     }
     fn populate_output(
       &mut self,
@@ -651,8 +670,12 @@ pub fn evaluate_node(
       // the graphs, you can come up with your own evaluation semantics!
       populate_output(self.graph, self.outputs_cache, self.node_id, name, value)
     }
-    fn input_scalar(&mut self, name: &str) -> anyhow::Result<bool> {
-      self.evaluate_input(name)?.try_to_scalar()
+    fn input_scalar(
+      &mut self,
+      name: &str,
+      user_state: &GraphState,
+    ) -> anyhow::Result<bool> {
+      self.evaluate_input(name, user_state)?.try_to_scalar()
     }
     fn output_scalar(
       &mut self,
@@ -667,17 +690,23 @@ pub fn evaluate_node(
   let mut evaluator = Evaluator::new(graph, outputs_cache, node_id);
   match node.user_data.template {
     NodeTempl::And => {
-      let a = evaluator.input_scalar("A")?;
-      let b = evaluator.input_scalar("B")?;
+      let mut outs = node.output_ids();
+      let out_id = outs.next().unwrap();
 
-      evaluator.output_scalar("out", a && b)
+      let value = if let Some(reg) = user_state.outs_to_regs.get(&out_id) {
+        user_state.simulation.register(*reg)
+      } else {
+        false
+      };
+
+      evaluator.output_scalar("out", value)
     }
     NodeTempl::Immediate => {
-      let a = evaluator.input_scalar("A")?;
+      let a = evaluator.input_scalar("A", user_state)?;
       evaluator.output_scalar("out", a)
     }
     NodeTempl::Inspector => {
-      let a = evaluator.input_scalar("A")?;
+      let a = evaluator.input_scalar("A", user_state)?;
       evaluator.output_scalar("out", a)
     }
   }
@@ -701,6 +730,7 @@ fn evaluate_input(
   node_id: NodeId,
   param_name: &str,
   outputs_cache: &mut OutputsCache,
+  user_state: &GraphState,
 ) -> anyhow::Result<ValueType> {
   let input_id = graph[node_id].get_input(param_name)?;
 
@@ -715,7 +745,12 @@ fn evaluate_input(
     // recursively evaluate it.
     else {
       // Calling this will populate the cache
-      evaluate_node(graph, graph[other_output_id].node, outputs_cache)?;
+      evaluate_node(
+        graph,
+        graph[other_output_id].node,
+        outputs_cache,
+        user_state,
+      )?;
 
       // Now that we know the value is cached, return it
       Ok(
