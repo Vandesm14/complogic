@@ -406,6 +406,12 @@ impl eframe::App for NodeGraphExample {
       .inner;
 
     // If the graph has changed, we need to update our internal state
+    //
+    // Note: Because this application is a GUI, we update every frame
+    // Because of this, we can just check the number of connections as
+    // opposed to checking the actual data since the user will need to
+    // disconnect something before connecting it, so the length will
+    // always change.
     let new_connection_count = self.state.graph.connections.len();
     if new_connection_count != self.user_state.connections {
       self.user_state.connections = new_connection_count;
