@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, rc::Rc, sync::atomic::Ordering};
+use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use eframe::egui::{self, Checkbox, TextStyle};
 use egui_node_graph::*;

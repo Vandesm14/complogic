@@ -2,7 +2,7 @@ use crate::{Incrementer, NandOp, Ops};
 use std::{fmt::Debug, rc::Rc};
 
 pub trait Gate: Debug {
-  fn create(&self, incrementer: &Incrementer) -> Ops;
+  fn create(&self, incrementer: &mut Incrementer) -> Ops;
 }
 
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub struct Nand {
 }
 
 impl Gate for Nand {
-  fn create(&self, _: &Incrementer) -> Ops {
+  fn create(&self, _: &mut Incrementer) -> Ops {
     vec![NandOp(self.a, self.b, self.out)]
   }
 }
@@ -25,7 +25,7 @@ pub struct Not {
 }
 
 impl Gate for Not {
-  fn create(&self, _: &Incrementer) -> Ops {
+  fn create(&self, _: &mut Incrementer) -> Ops {
     vec![NandOp(self.a, self.a, self.out)]
   }
 }
@@ -38,7 +38,7 @@ pub struct And {
 }
 
 impl Gate for And {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let nand = Nand {
       a: self.a,
       b: self.b,
@@ -65,7 +65,7 @@ pub struct Or {
 }
 
 impl Gate for Or {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let nand_a = Nand {
       a: self.a,
       b: self.a,
@@ -99,7 +99,7 @@ pub struct Nor {
 }
 
 impl Gate for Nor {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let or = Or {
       a: self.a,
       b: self.b,
@@ -126,7 +126,7 @@ pub struct Xor {
 }
 
 impl Gate for Xor {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let or = Or {
       a: self.a,
       b: self.b,
@@ -160,7 +160,7 @@ pub struct RSLatch {
 }
 
 impl Gate for RSLatch {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let q_patch = incrementer.next();
     let qn_patch = incrementer.next();
 
@@ -198,7 +198,7 @@ pub struct DLatch {
 }
 
 impl Gate for DLatch {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let not = Rc::new(Not {
       a: self.d,
       out: incrementer.next(),
@@ -242,7 +242,7 @@ pub struct HalfAdder {
 }
 
 impl Gate for HalfAdder {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let xor = Rc::new(Xor {
       a: self.a,
       b: self.b,
@@ -272,7 +272,7 @@ pub struct FullAdder {
 }
 
 impl Gate for FullAdder {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let half_adder_1 = HalfAdder {
       a: self.a,
       b: self.b,
@@ -319,7 +319,7 @@ pub struct FourBitAdder {
 }
 
 impl Gate for FourBitAdder {
-  fn create(&self, incrementer: &Incrementer) -> Ops {
+  fn create(&self, incrementer: &mut Incrementer) -> Ops {
     let full_adder_1 = Rc::new(FullAdder {
       a: self.a1,
       b: self.b1,
@@ -560,7 +560,7 @@ mod tests {
     let mut simulation = Simulation::new(8);
     let [a4, a3, a2, a1, b4, b3, b2, b1] = [0, 1, 2, 3, 4, 5, 6, 7];
 
-    simulation.incrementer.next_n(5);
+    simulation.incrementer.skip(5);
     let [s5, s4, s3, s2, s1] = [8, 9, 10, 11, 12];
 
     let four_bit_adder = Rc::new(FourBitAdder {

@@ -1,7 +1,4 @@
-use std::{
-  rc::Rc,
-  sync::atomic::{AtomicUsize, Ordering},
-};
+use std::rc::Rc;
 
 use crate::gates::Gate;
 
@@ -9,30 +6,30 @@ use crate::gates::Gate;
 pub struct NandOp(pub usize, pub usize, pub usize);
 pub type Ops = Vec<NandOp>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Incrementer {
-  pub val: AtomicUsize,
+  pub val: usize,
 }
 
 impl Incrementer {
   pub fn new() -> Self {
-    Self {
-      val: AtomicUsize::new(0),
-    }
+    Self { val: 0 }
   }
 
   pub fn set(val: usize) -> Self {
-    Self {
-      val: AtomicUsize::new(val),
-    }
+    Self { val }
   }
 
-  pub fn next(&self) -> usize {
-    self.val.fetch_add(1, Ordering::AcqRel)
+  #[allow(clippy::should_implement_trait)]
+  pub fn next(&mut self) -> usize {
+    let current = self.val;
+    self.val += 1;
+
+    current
   }
 
-  pub fn next_n(&self, n: usize) -> usize {
-    self.val.fetch_add(n, Ordering::AcqRel) + n - 1
+  pub fn skip(&mut self, count: usize) {
+    self.val += count;
   }
 }
 
@@ -105,11 +102,14 @@ impl Simulation {
   pub fn compile(&mut self, gate: Vec<Rc<dyn Gate>>) -> usize {
     self.ops = vec![];
 
+    // Cloning incrementer since we are generating ops and we don't
+    // want to change the incrementer for top-level gates (what we are compiling)
+    // let mut incr = self.incrementer.clone();
     gate.into_iter().for_each(|gate| {
-      self.ops.extend(gate.create(&self.incrementer));
+      self.ops.extend(gate.create(&mut self.incrementer));
     });
 
-    let reg_count = self.incrementer.val.load(Ordering::Relaxed);
+    let reg_count = self.incrementer.val;
     self.registers = vec![false; reg_count];
 
     reg_count
