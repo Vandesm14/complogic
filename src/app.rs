@@ -406,51 +406,7 @@ impl eframe::App for NodeGraphExample {
       })
       .inner;
 
-    // Because Immediates can change their falues without changing connections,
-    // we need to check them first, and every time we see an update.
-    //
-    // TODO: Optimize this so we don't have to check every frame
     let mut changed = false;
-    self.user_state.simulation.immediate_count = 0;
-
-    // Run through all immediates first since they are the first in the register stack
-    for (i, node) in self
-      .state
-      .graph
-      .nodes
-      .iter()
-      .filter(|node| matches!(node.1.user_data.template, NodeTempl::Immediate))
-      .enumerate()
-    {
-      let (id, data) = node;
-
-      let mut out_ids = data.output_ids();
-      let out_id = out_ids.next().unwrap();
-
-      let value =
-        match evaluate_node(&self.state.graph, id, &mut HashMap::new()) {
-          Ok(value) => value.try_to_scalar().unwrap_or(false),
-          Err(_) => false,
-        };
-
-      if let Some((_, prev_value)) = self.user_state.immediates.get(&out_id) {
-        if *prev_value != value {
-          changed = true;
-        }
-      } else {
-        changed = true;
-      }
-
-      self
-        .user_state
-        .immediates
-        .insert(out_id, (self.user_state.simulation.immediate_count, value));
-      self.user_state.outs_to_regs.insert(out_id, i);
-      self.user_state.simulation.immediate_count += 1;
-    }
-
-    // Reset the incrementer since we are recompiling
-    self.user_state.simulation.reset_incrementer();
 
     // If the graph has changed, we need to update our internal state
     //
@@ -461,12 +417,36 @@ impl eframe::App for NodeGraphExample {
     let new_connection_count = self.state.graph.connections.len();
     if new_connection_count != self.user_state.connections {
       changed = true;
-
       self.user_state.connections = new_connection_count;
 
       // Clear the gates
       self.user_state.gates.clear();
       self.user_state.outs_to_regs.clear();
+
+      self.user_state.simulation.immediate_count = 0;
+
+      // Run through all immediates first since they are the first in the register stack
+      for (i, node) in self
+        .state
+        .graph
+        .nodes
+        .iter()
+        .filter(|node| {
+          matches!(node.1.user_data.template, NodeTempl::Immediate)
+        })
+        .enumerate()
+      {
+        let (_, data) = node;
+
+        let mut out_ids = data.output_ids();
+        let out_id = out_ids.next().unwrap();
+
+        self.user_state.outs_to_regs.insert(out_id, i);
+        self.user_state.simulation.immediate_count = i + 1;
+      }
+
+      // Reset the incrementer since we are recompiling
+      self.user_state.simulation.reset_incrementer();
 
       // Run through all nodes (except immediates) and add them to the simulation
       for node in self
@@ -528,10 +508,42 @@ impl eframe::App for NodeGraphExample {
       }
     }
 
+    // Capture the values of all of the immediates
+    for node in
+      self.state.graph.nodes.iter().filter(|node| {
+        matches!(node.1.user_data.template, NodeTempl::Immediate)
+      })
+    {
+      let (id, data) = node;
+
+      let mut out_ids = data.output_ids();
+      let out_id = out_ids.next().unwrap();
+
+      // If the immediate is connected to our graph, capture the value.
+      // Else, we do nothing because nothing references it (it's dead to us)
+      if let Some(reg) = self.user_state.outs_to_regs.get(&out_id) {
+        let value =
+          match evaluate_node(&self.state.graph, id, &mut HashMap::new()) {
+            Ok(value) => value.try_to_scalar().unwrap_or(false),
+            Err(_) => false,
+          };
+
+        if let Some((_, prev_value)) = self.user_state.immediates.get(&out_id) {
+          if *prev_value != value {
+            changed = true;
+          }
+        } else {
+          changed = true;
+        }
+        self.user_state.immediates.insert(out_id, (*reg, value));
+      }
+    }
+
     if changed {
-      // println!();
-      // println!("Gates: {:?}", self.user_state.gates);
-      // println!("Immediates: {:?}", self.user_state.immediates);
+      println!();
+      println!("Gates: {:?}", self.user_state.gates);
+      println!("Immediates: {:?}", self.user_state.immediates);
+      println!("Regs: {:?}", self.user_state.outs_to_regs);
 
       self
         .user_state
