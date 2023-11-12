@@ -13,10 +13,7 @@ use crate::{And, Gate, Simulation};
 /// The NodeData holds a custom data struct inside each node. It's useful to
 /// store additional information that doesn't live in parameters. For this
 /// example, the node data stores the template (i.e. the "type") of the node.
-#[cfg_attr(
-  feature = "persistence",
-  derive(serde::Serialize, serde::Deserialize)
-)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct NodeData {
   template: NodeTempl,
 }
@@ -24,11 +21,7 @@ pub struct NodeData {
 /// `DataType`s are what defines the possible range of connections when
 /// attaching two ports together. The graph UI will make sure to not allow
 /// attaching incompatible datatypes.
-#[derive(PartialEq, Eq)]
-#[cfg_attr(
-  feature = "persistence",
-  derive(serde::Serialize, serde::Deserialize)
-)]
+#[derive(PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DataType {
   Scalar,
 }
@@ -40,11 +33,7 @@ pub enum DataType {
 /// this library makes no attempt to check this consistency. For instance, it is
 /// up to the user code in this example to make sure no parameter is created
 /// with a DataType of Scalar and a ValueType of Vec2.
-#[derive(Copy, Clone, Debug)]
-#[cfg_attr(
-  feature = "persistence",
-  derive(serde::Serialize, serde::Deserialize)
-)]
+#[derive(Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ValueType {
   Scalar { value: bool },
 }
@@ -68,11 +57,7 @@ impl ValueType {
 /// NodeTemplate is a mechanism to define node templates. It's what the graph
 /// will display in the "new node" popup. The user code needs to tell the
 /// library how to convert a NodeTemplate into a Node.
-#[derive(Clone, Copy)]
-#[cfg_attr(
-  feature = "persistence",
-  derive(serde::Serialize, serde::Deserialize)
-)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum NodeTempl {
   And,
   Immediate,
@@ -92,11 +77,7 @@ pub enum MyResponse {
 /// The graph 'global' state. This state struct is passed around to the node and
 /// parameter drawing callbacks. The contents of this struct are entirely up to
 /// the user. For this example, we use it to keep track of the 'active' node.
-#[derive(Default)]
-#[cfg_attr(
-  feature = "persistence",
-  derive(serde::Serialize, serde::Deserialize)
-)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 pub struct GraphState {
   pub active_node: Option<NodeId>,
   pub simulation: Simulation,
@@ -364,10 +345,8 @@ pub struct NodeGraphExample {
   user_state: GraphState,
 }
 
-#[cfg(feature = "persistence")]
 const PERSISTENCE_KEY: &str = "egui_node_graph";
 
-#[cfg(feature = "persistence")]
 impl NodeGraphExample {
   /// If the persistence feature is enabled, Called once before the first frame.
   /// Load previous app state (if any).
@@ -384,7 +363,6 @@ impl NodeGraphExample {
 }
 
 impl eframe::App for NodeGraphExample {
-  #[cfg(feature = "persistence")]
   /// If the persistence function is enabled,
   /// Called by the frame work to save state before shutdown.
   fn save(&mut self, storage: &mut dyn eframe::Storage) {

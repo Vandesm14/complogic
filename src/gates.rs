@@ -92,7 +92,7 @@ pub struct FourBitAdder {
   pub cout: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Gate {
   Nand(Nand),
   Not(Not),

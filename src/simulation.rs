@@ -1,10 +1,11 @@
 use crate::gates::Gate;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NandOp(pub usize, pub usize, pub usize);
 pub type Ops = Vec<NandOp>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Incrementer {
   pub val: usize,
 }
@@ -37,7 +38,7 @@ impl Default for Incrementer {
   }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Simulation {
   /// Registers that note the inputs and outputs of logic gates
   pub registers: Vec<bool>,

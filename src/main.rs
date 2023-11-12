@@ -14,12 +14,7 @@ fn main() {
     eframe::NativeOptions::default(),
     Box::new(|cc| {
       cc.egui_ctx.set_visuals(Visuals::dark());
-      #[cfg(feature = "persistence")]
-      {
-        Box::new(NodeGraphExample::new(cc))
-      }
-      #[cfg(not(feature = "persistence"))]
-      Box::<NodeGraphExample>::default()
+      Box::new(NodeGraphExample::new(cc))
     }),
   )
   .expect("Failed to run native example");
@@ -36,7 +31,7 @@ fn main() {
     eframe::web::start(
       "the_canvas_id", // hardcode it
       web_options,
-      Box::new(|cc| Box::new(NodeGraphExample::default())),
+      Box::new(|cc| Box::new(NodeGraphExample::new(cc))),
     )
     .await
     .expect("failed to start eframe");
