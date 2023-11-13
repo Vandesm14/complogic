@@ -214,4 +214,38 @@ mod tests {
     // Two immediates plus two outputs for the And's internal Nand gates
     assert_eq!(reg_count, 4);
   }
+
+  #[test]
+  /// Test that mis-ordering gates doesn't break the simulation
+  fn mis_ordered_gates() {
+    let mut simulation = Simulation::new(2);
+    let [a, b] = [0, 1];
+
+    let and = And {
+      a,
+      b,
+      out: simulation.alloc(),
+    };
+
+    let and_2 = And {
+      a: and.out,
+      b,
+      out: simulation.alloc(),
+    };
+
+    // Order the second And before the first, even though
+    // it should be the other way around.
+    simulation.compile(vec![&Gate::from(and_2), &Gate::from(and)]);
+
+    // Check the false state for sanity (both should be false)
+    simulation.run(&[false, false]);
+    assert!(!simulation.registers[and.out]);
+    assert!(!simulation.registers[and_2.out]);
+
+    // The compiler should order them correctly
+    // so both gates should be true
+    simulation.run(&[true, true]);
+    assert!(simulation.registers[and.out]);
+    assert!(simulation.registers[and_2.out]);
+  }
 }
