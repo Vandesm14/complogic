@@ -120,28 +120,25 @@ impl Simulation {
       self.ops.extend(gate.create(&mut incrementer));
     });
 
-    let mut new_ops = self.ops.clone();
-    for op in self.ops.iter() {
+    for op in self.ops.clone().into_iter() {
       let a = op.0;
       let b = op.1;
-      let our_index = new_ops.iter().position(|o| *o == *op).unwrap();
+      let our_index = self.ops.iter().position(|o| *o == op).unwrap();
 
       if a < self.immediate_count && b < self.immediate_count {
-        move_element(&mut new_ops, our_index, 0);
+        move_element(&mut self.ops, our_index, 0);
         continue;
       }
 
-      let a_index = new_ops.iter().position(|op| op.2 == a).unwrap_or(0);
-      let b_index = new_ops.iter().position(|op| op.2 == b).unwrap_or(0);
+      let a_index = self.ops.iter().position(|op| op.2 == a).unwrap_or(0);
+      let b_index = self.ops.iter().position(|op| op.2 == b).unwrap_or(0);
 
       let max = a_index.max(b_index);
 
       if our_index < max {
-        move_element(&mut new_ops, our_index, max + 1);
+        move_element(&mut self.ops, our_index, max + 1);
       }
     }
-
-    self.ops = new_ops;
 
     let reg_count = incrementer.val;
     self.registers = vec![false; reg_count];
