@@ -7,33 +7,17 @@ use complogic::NodeGraphExample;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
-  // use eframe::egui::Visuals;
+  use eframe::egui::Visuals;
 
-  // eframe::run_native(
-  //   "Egui node graph example",
-  //   eframe::NativeOptions::default(),
-  //   Box::new(|cc| {
-  //     cc.egui_ctx.set_visuals(Visuals::dark());
-  //     Box::new(NodeGraphExample::new(cc))
-  //   }),
-  // )
-  // .expect("Failed to run native example");
-
-  use complogic::{Gate, Or, Simulation};
-
-  let mut simulation = Simulation::new(2);
-  let [a, b] = [0, 1];
-
-  let or = Or {
-    a,
-    b,
-    out: simulation.alloc(),
-  };
-
-  // Order the second And before the first, even though
-  // it should be the other way around.
-  simulation.compile(vec![&Gate::from(or)]);
-  println!("{:?}", simulation.ops);
+  eframe::run_native(
+    "Egui node graph example",
+    eframe::NativeOptions::default(),
+    Box::new(|cc| {
+      cc.egui_ctx.set_visuals(Visuals::dark());
+      Box::new(NodeGraphExample::new(cc))
+    }),
+  )
+  .expect("Failed to run native example");
 }
 
 #[cfg(target_arch = "wasm32")]
