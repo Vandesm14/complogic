@@ -404,6 +404,7 @@ impl eframe::App for NodeGraphExample {
       // Clear the gates
       self.user_state.gates.clear();
       self.user_state.outs_to_regs.clear();
+      self.user_state.regs_to_outs.clear();
       self.user_state.simulation.immediate_count = 0;
 
       // Run through all immediates first since they are the first in the register stack
@@ -469,12 +470,16 @@ impl eframe::App for NodeGraphExample {
             };
 
             let out_id = out_ids.next().unwrap();
-
-            let out = self.user_state.simulation.alloc();
-            self.user_state.outs_to_regs.insert(out_id, out);
+            let out = match self.user_state.outs_to_regs.get(&out_id) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.simulation.alloc();
+                self.user_state.outs_to_regs.insert(out_id, reg);
+                reg
+              }
+            };
 
             let gate = And { a, b, out };
-
             self.user_state.gates.insert(id, Gate::from(gate));
           }
 
