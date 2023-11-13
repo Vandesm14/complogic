@@ -120,6 +120,9 @@ impl Simulation {
       self.ops.extend(gate.create(&mut incrementer));
     });
 
+    #[cfg(test)]
+    println!("Start: {:?}", self.ops);
+
     for op in self.ops.clone().into_iter() {
       let a = op.0;
       let b = op.1;
@@ -140,6 +143,9 @@ impl Simulation {
       }
     }
 
+    #[cfg(test)]
+    println!("End: {:?}", self.ops);
+
     let reg_count = incrementer.val;
     self.registers = vec![false; reg_count];
 
@@ -157,7 +163,7 @@ impl Simulation {
 
 #[cfg(test)]
 mod tests {
-  use crate::And;
+  use crate::{And, Nor, Or};
 
   use super::*;
 
@@ -248,36 +254,53 @@ mod tests {
   }
 
   #[test]
-  /// Test that mis-ordering gates doesn't break the simulation
-  fn mis_ordered_gates() {
+  /// Custom compiling a RS Latch that has self-referencing gates
+  fn non_sorted_gates_should_sort() {
     let mut simulation = Simulation::new(2);
-    let [a, b] = [0, 1];
+    let [s, r] = [0, 1];
 
-    let and = And {
-      a,
-      b,
+    let q_patch = simulation.alloc();
+    let qn_patch = simulation.alloc();
+
+    let nor_1 = Nor {
+      a: s,
+      b: qn_patch,
+      out: q_patch,
+    };
+    let nor_2 = Nor {
+      a: r,
+      b: q_patch,
+      out: qn_patch,
+    };
+
+    let or_q = Or {
+      a: qn_patch,
+      b: qn_patch,
       out: simulation.alloc(),
     };
 
-    let and_2 = And {
-      a: and.out,
-      b,
-      out: simulation.alloc(),
-    };
+    simulation
+      .ops
+      .extend(Gate::from(or_q).create(&mut simulation.incrementer));
+    simulation
+      .ops
+      .extend(Gate::from(nor_2).create(&mut simulation.incrementer));
+    simulation
+      .ops
+      .extend(Gate::from(nor_1).create(&mut simulation.incrementer));
+    simulation.registers = vec![false; 13];
 
-    // Order the second And before the first, even though
-    // it should be the other way around.
-    simulation.compile(vec![&Gate::from(and_2), &Gate::from(and)]);
-
-    // Check the false state for sanity (both should be false)
+    // Reset the latch (due to the nature of logic, it starts as set when it's created)
     simulation.run(&[false, false]);
-    assert!(!simulation.registers[and.out]);
-    assert!(!simulation.registers[and_2.out]);
+    assert!(!simulation.registers[or_q.out]);
 
-    // The compiler should order them correctly
-    // so both gates should be true
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[or_q.out]);
+
+    simulation.run(&[false, true]);
+    assert!(!simulation.registers[or_q.out]);
+
     simulation.run(&[true, true]);
-    assert!(simulation.registers[and.out]);
-    assert!(simulation.registers[and_2.out]);
+    assert!(!simulation.registers[or_q.out]);
   }
 }
