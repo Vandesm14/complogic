@@ -121,9 +121,6 @@ impl Simulation {
     });
 
     let mut new_ops = self.ops.clone();
-
-    println!("Start: {:?}", new_ops);
-
     for op in self.ops.iter() {
       let a = op.0;
       let b = op.1;
@@ -143,8 +140,6 @@ impl Simulation {
         move_element(&mut new_ops, our_index, max + 1);
       }
     }
-
-    println!("End: {:?}", new_ops);
 
     self.ops = new_ops;
 
