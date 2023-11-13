@@ -1,9 +1,21 @@
 use crate::gates::Gate;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NandOp(pub usize, pub usize, pub usize);
 pub type Ops = Vec<NandOp>;
+
+fn move_element<T>(vec: &mut Vec<T>, from_index: usize, to_index: usize) {
+  // TODO: fix the clippy thing
+  #[allow(clippy::comparison_chain)]
+  if from_index < to_index {
+    let element = vec.remove(from_index);
+    vec.insert(to_index - 1, element);
+  } else if from_index > to_index {
+    let element = vec.remove(from_index);
+    vec.insert(to_index, element);
+  }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Incrementer {
@@ -107,6 +119,34 @@ impl Simulation {
     gate.into_iter().for_each(|gate| {
       self.ops.extend(gate.create(&mut incrementer));
     });
+
+    let mut new_ops = self.ops.clone();
+
+    println!("Start: {:?}", new_ops);
+
+    for op in self.ops.iter() {
+      let a = op.0;
+      let b = op.1;
+      let our_index = new_ops.iter().position(|o| *o == *op).unwrap();
+
+      if a < self.immediate_count && b < self.immediate_count {
+        move_element(&mut new_ops, our_index, 0);
+        continue;
+      }
+
+      let a_index = new_ops.iter().position(|op| op.2 == a).unwrap_or(0);
+      let b_index = new_ops.iter().position(|op| op.2 == b).unwrap_or(0);
+
+      let max = a_index.max(b_index);
+
+      if our_index < max {
+        move_element(&mut new_ops, our_index, max + 1);
+      }
+    }
+
+    println!("End: {:?}", new_ops);
+
+    self.ops = new_ops;
 
     let reg_count = incrementer.val;
     self.registers = vec![false; reg_count];
