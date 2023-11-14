@@ -2,20 +2,17 @@ use crate::gates::Gate;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub struct NandOp(pub usize, pub usize, pub usize);
-pub type Ops = Vec<NandOp>;
+pub enum Op {
+  // Performs a Nand operation on two input addresses and stores the result in the output address
+  Nand(usize, usize, usize),
 
-fn move_element<T>(vec: &mut Vec<T>, from_index: usize, to_index: usize) {
-  // TODO: fix the clippy thing
-  #[allow(clippy::comparison_chain)]
-  if from_index < to_index {
-    let element = vec.remove(from_index);
-    vec.insert(to_index - 1, element);
-  } else if from_index > to_index {
-    let element = vec.remove(from_index);
-    vec.insert(to_index, element);
-  }
+  // Jumps to the given address (instruction pointer)
+  Jump(usize),
+
+  // Returns to the previous address (jump stack)
+  Return,
 }
+pub type Ops = Vec<Op>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Incrementer {
@@ -96,11 +93,12 @@ impl Simulation {
     });
 
     self.ops.iter().for_each(|op| match *op {
-      NandOp(a, b, out) => {
+      Op::Nand(a, b, out) => {
         let a = self.registers[a];
         let b = self.registers[b];
         self.registers[out] = !(a && b);
       }
+      _ => todo!(),
     });
   }
 
@@ -120,40 +118,10 @@ impl Simulation {
       self.ops.extend(gate.create(&mut incrementer));
     });
 
-    #[cfg(test)]
-    println!("Start: {:?}", self.ops);
-
-    for op in self.ops.clone().into_iter() {
-      let a = op.0;
-      let b = op.1;
-      let our_index = self.ops.iter().position(|o| *o == op).unwrap();
-
-      if a < self.immediate_count && b < self.immediate_count {
-        move_element(&mut self.ops, our_index, 0);
-        continue;
-      }
-
-      let a_index = self.ops.iter().position(|op| op.2 == a).unwrap_or(0);
-      let b_index = self.ops.iter().position(|op| op.2 == b).unwrap_or(0);
-
-      let max = a_index.max(b_index);
-
-      if our_index < max {
-        move_element(&mut self.ops, our_index, max + 1);
-      }
-    }
-
-    #[cfg(test)]
-    println!("End: {:?}", self.ops);
-
     let reg_count = incrementer.val;
     self.registers = vec![false; reg_count];
 
     reg_count
-  }
-
-  pub fn add_op(&mut self, op: NandOp) {
-    self.ops.push(op);
   }
 
   pub fn register(&self, index: usize) -> bool {
@@ -163,7 +131,7 @@ impl Simulation {
 
 #[cfg(test)]
 mod tests {
-  use crate::{And, Nor, Or, RSLatchTest};
+  use crate::{And, RSLatchTest};
 
   use super::*;
 
@@ -172,7 +140,7 @@ mod tests {
   fn op_nand() {
     let mut simulation = Simulation {
       registers: vec![false, false, false],
-      ops: vec![NandOp(0, 1, 2)],
+      ops: vec![Op::Nand(0, 1, 2)],
       immediate_count: 2,
       incrementer: Incrementer::set(2 - 1),
     };

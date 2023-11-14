@@ -1,4 +1,4 @@
-use crate::{Incrementer, NandOp, Ops};
+use crate::{Incrementer, Op, Ops};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -193,10 +193,10 @@ impl Gate {
   pub fn create(&self, incrementer: &mut Incrementer) -> Ops {
     match self {
       Gate::Nand(nand) => {
-        vec![NandOp(nand.a, nand.b, nand.out)]
+        vec![Op::Nand(nand.a, nand.b, nand.out)]
       }
       Gate::Not(not) => {
-        vec![NandOp(not.a, not.a, not.out)]
+        vec![Op::Nand(not.a, not.a, not.out)]
       }
       Gate::And(and) => {
         let nand = Nand {
