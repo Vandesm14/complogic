@@ -49,6 +49,13 @@ pub struct RSLatch {
   pub r: usize,
   pub q: usize,
 }
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg(test)]
+pub struct RSLatchTest {
+  pub s: usize,
+  pub r: usize,
+  pub q: usize,
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct DLatch {
@@ -101,6 +108,8 @@ pub enum Gate {
   Nor(Nor),
   Xor(Xor),
   RSLatch(RSLatch),
+  #[cfg(test)]
+  RSLatchTest(RSLatchTest),
   DLatch(DLatch),
   HalfAdder(HalfAdder),
   FullAdder(FullAdder),
@@ -146,6 +155,13 @@ impl From<Xor> for Gate {
 impl From<RSLatch> for Gate {
   fn from(rs_latch: RSLatch) -> Self {
     Self::RSLatch(rs_latch)
+  }
+}
+
+#[cfg(test)]
+impl From<RSLatchTest> for Gate {
+  fn from(rs_latch_test: RSLatchTest) -> Self {
+    Self::RSLatchTest(rs_latch_test)
   }
 }
 
@@ -289,6 +305,35 @@ impl Gate {
         ops.extend(Gate::from(nor_1).create(incrementer));
         ops.extend(Gate::from(nor_2).create(incrementer));
         ops.extend(Gate::from(or_q).create(incrementer));
+
+        ops
+      }
+      #[cfg(test)]
+      Gate::RSLatchTest(rs_latch) => {
+        let q_patch = incrementer.next();
+        let qn_patch = incrementer.next();
+
+        let nor_1 = Nor {
+          a: rs_latch.s,
+          b: qn_patch,
+          out: q_patch,
+        };
+        let nor_2 = Nor {
+          a: rs_latch.r,
+          b: q_patch,
+          out: qn_patch,
+        };
+
+        let or_q = Or {
+          a: qn_patch,
+          b: qn_patch,
+          out: rs_latch.q,
+        };
+
+        let mut ops: Ops = vec![];
+        ops.extend(Gate::from(or_q).create(incrementer));
+        ops.extend(Gate::from(nor_2).create(incrementer));
+        ops.extend(Gate::from(nor_1).create(incrementer));
 
         ops
       }

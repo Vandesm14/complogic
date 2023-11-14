@@ -163,7 +163,7 @@ impl Simulation {
 
 #[cfg(test)]
 mod tests {
-  use crate::{And, Nor, Or};
+  use crate::{And, Nor, Or, RSLatchTest};
 
   use super::*;
 
@@ -259,48 +259,25 @@ mod tests {
     let mut simulation = Simulation::new(2);
     let [s, r] = [0, 1];
 
-    let q_patch = simulation.alloc();
-    let qn_patch = simulation.alloc();
-
-    let nor_1 = Nor {
-      a: s,
-      b: qn_patch,
-      out: q_patch,
-    };
-    let nor_2 = Nor {
-      a: r,
-      b: q_patch,
-      out: qn_patch,
+    let rslatch = RSLatchTest {
+      s,
+      r,
+      q: simulation.alloc(),
     };
 
-    let or_q = Or {
-      a: qn_patch,
-      b: qn_patch,
-      out: simulation.alloc(),
-    };
-
-    simulation
-      .ops
-      .extend(Gate::from(or_q).create(&mut simulation.incrementer));
-    simulation
-      .ops
-      .extend(Gate::from(nor_2).create(&mut simulation.incrementer));
-    simulation
-      .ops
-      .extend(Gate::from(nor_1).create(&mut simulation.incrementer));
-    simulation.registers = vec![false; 13];
+    simulation.compile(vec![&Gate::from(rslatch)]);
 
     // Reset the latch (due to the nature of logic, it starts as set when it's created)
     simulation.run(&[false, false]);
-    assert!(!simulation.registers[or_q.out]);
+    assert!(!simulation.registers[rslatch.q]);
 
     simulation.run(&[true, false]);
-    assert!(simulation.registers[or_q.out]);
+    assert!(simulation.registers[rslatch.q]);
 
     simulation.run(&[false, true]);
-    assert!(!simulation.registers[or_q.out]);
+    assert!(!simulation.registers[rslatch.q]);
 
     simulation.run(&[true, true]);
-    assert!(!simulation.registers[or_q.out]);
+    assert!(!simulation.registers[rslatch.q]);
   }
 }
