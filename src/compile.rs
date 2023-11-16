@@ -6,11 +6,8 @@ pub enum Op {
   // Performs a Nand operation on two input addresses and stores the result in the output address
   Nand(usize, usize, usize),
 
-  // Jumps to the given address (instruction pointer)
-  Jump(usize),
-
-  // Returns to the previous address (jump stack)
-  Return,
+  // Sets the value of the register at the given address
+  Set(usize, bool),
 }
 pub type Ops = Vec<Op>;
 
@@ -48,10 +45,7 @@ impl Default for Incrementer {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Simulation {
-  /// Registers that note the inputs and outputs of logic gates
-  pub registers: Vec<bool>,
-
+pub struct Compiler {
   /// The number of immediate values to allocate when running the simulation
   pub immediate_count: usize,
 
@@ -62,11 +56,10 @@ pub struct Simulation {
   pub incrementer: Incrementer,
 }
 
-impl Simulation {
-  /// Creates a new simulation
+impl Compiler {
+  /// Creates a new compiler
   pub fn new(immediate_count: usize) -> Self {
     Self {
-      registers: vec![],
       ops: vec![],
       immediate_count,
       incrementer: Incrementer::set(immediate_count),
@@ -76,30 +69,6 @@ impl Simulation {
   /// Resets the incrementer
   pub fn reset_incrementer(&mut self) {
     self.incrementer = Incrementer::set(self.immediate_count);
-  }
-
-  /// Runs the VM with the given immediates
-  pub fn run(&mut self, immediates: &[bool]) {
-    if immediates.len() != self.immediate_count {
-      panic!(
-        "Expected {} immediates, got {}",
-        self.immediate_count,
-        immediates.len()
-      );
-    }
-
-    immediates.iter().enumerate().for_each(|(i, value)| {
-      self.registers[i] = *value;
-    });
-
-    self.ops.iter().for_each(|op| match *op {
-      Op::Nand(a, b, out) => {
-        let a = self.registers[a];
-        let b = self.registers[b];
-        self.registers[out] = !(a && b);
-      }
-      _ => todo!(),
-    });
   }
 
   /// Allocates a new register and returns its index
@@ -119,13 +88,8 @@ impl Simulation {
     });
 
     let reg_count = incrementer.val;
-    self.registers = vec![false; reg_count];
 
     reg_count
-  }
-
-  pub fn register(&self, index: usize) -> bool {
-    self.registers[index]
   }
 }
 
