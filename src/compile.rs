@@ -1,14 +1,27 @@
+use std::collections::HashMap;
+
 use crate::gates::Gate;
+use petgraph::{graph::DiGraph, stable_graph::NodeIndex, Direction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Op {
-  // Performs a Nand operation on two input addresses and stores the result in the output address
+  /// Performs a Nand operation on two input addresses and stores the result in the output address
   Nand(usize, usize, usize),
 
-  // Sets the value of the register at the given address
+  /// Sets the value of the register at the given address
   Set(usize, bool),
+
+  /// Noop
+  Noop,
 }
+
+impl Default for Op {
+  fn default() -> Self {
+    Self::Noop
+  }
+}
+
 pub type Ops = Vec<Op>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,6 +79,15 @@ impl Compiler {
     }
   }
 
+  /// Resets ops
+  pub fn reset_ops(&mut self) {
+    self.ops.clear();
+
+    for i in 0..self.immediate_count {
+      self.ops.push(Op::Set(i, false));
+    }
+  }
+
   /// Resets the incrementer
   pub fn reset_incrementer(&mut self) {
     self.incrementer = Incrementer::set(self.immediate_count);
@@ -77,8 +99,8 @@ impl Compiler {
   }
 
   /// Compiles a list of gates into Ops
-  pub fn compile(&mut self, gate: Vec<&Gate>) -> usize {
-    self.ops = vec![];
+  pub fn compile(&mut self, gate: Vec<&Gate>) {
+    self.reset_ops();
 
     // Cloning incrementer since we are generating ops and we don't
     // want to change the incrementer for top-level gates (what we are compiling)
@@ -87,9 +109,44 @@ impl Compiler {
       self.ops.extend(gate.create(&mut incrementer));
     });
 
-    let reg_count = incrementer.val;
+    let mut graph =
+      DiGraph::<Op, (), usize>::from_edges(self.ops.iter().flat_map(|op| {
+        match *op {
+          Op::Nand(a, b, out) => {
+            vec![(a, out), (b, out)]
+          }
+          _ => {
+            vec![]
+          }
+        }
+      }));
+    let mut layers: Vec<Vec<usize>> = vec![vec![]];
 
-    reg_count
+    // Add the data for each op
+    for op in self.ops.iter() {
+      let op = *op;
+      match op {
+        Op::Nand(_, _, out) => {
+          graph[NodeIndex::from(out)] = op;
+        }
+        Op::Set(reg, _) => {
+          graph[NodeIndex::from(reg)] = op;
+
+          layers[0].push(reg);
+        }
+        Op::Noop => {}
+      };
+    }
+
+    println!("graph: {graph:#?}");
+
+    for node in layers[0].iter() {
+      let children = graph
+        .neighbors_directed(NodeIndex::from(*node), Direction::Outgoing)
+        .collect::<Vec<_>>();
+
+      println!("Node: {:?}, Neighbors: {:?}", node, children);
+    }
   }
 }
 
