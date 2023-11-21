@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::gates::Gate;
+use eframe::epaint::ahash::HashSet;
 use petgraph::{graph::DiGraph, stable_graph::NodeIndex, Direction};
 use serde::{Deserialize, Serialize};
 
@@ -120,7 +121,7 @@ impl Compiler {
           }
         }
       }));
-    let mut layers: Vec<Vec<usize>> = vec![vec![]];
+    let mut layers: Vec<HashSet<usize>> = vec![HashSet::default()];
 
     // Add the data for each op
     for op in self.ops.iter() {
@@ -132,7 +133,8 @@ impl Compiler {
         Op::Set(reg, _) => {
           graph[NodeIndex::from(reg)] = op;
 
-          layers[0].push(reg);
+          // Add the output of the immediate to the layers
+          layers[0].insert(reg);
         }
         Op::Noop => {}
       };
@@ -140,13 +142,26 @@ impl Compiler {
 
     println!("graph: {graph:#?}");
 
-    for node in layers[0].iter() {
+    let mut queue: Vec<usize> = layers[0].clone().iter().copied().collect();
+
+    // Add a layer for the first nodes after immediates
+    if layers.len() < 2 {
+      layers.push(HashSet::default());
+    }
+
+    while let Some(node) = queue.pop() {
       let children = graph
-        .neighbors_directed(NodeIndex::from(*node), Direction::Outgoing)
+        .neighbors_directed(NodeIndex::from(node), Direction::Outgoing)
         .collect::<Vec<_>>();
+
+      children.iter().for_each(|n| {
+        layers[1].insert(n.index());
+      });
 
       println!("Node: {:?}, Neighbors: {:?}", node, children);
     }
+
+    println!("layers: {layers:#?}");
   }
 }
 
