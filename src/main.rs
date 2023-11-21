@@ -19,19 +19,20 @@ fn main() {
   // )
   // .expect("Failed to run native example");
 
-  use complogic::{Compiler, Gate, Or};
+  use complogic::{Compiler, Gate, RSLatch};
 
   let mut compiler = Compiler::new(2);
-  let [a, b] = [0, 1];
+  let [s, r] = [0, 1];
 
-  let or = Or {
-    a,
-    b,
-    out: compiler.alloc(),
+  let or = RSLatch {
+    q: compiler.alloc(),
+    s,
+    r,
   };
 
   compiler.compile(vec![&Gate::from(or)]);
   println!("{:?}", compiler.ops);
+  println!("Q: {:?}", or.q);
 }
 
 // #[cfg(target_arch = "wasm32")]

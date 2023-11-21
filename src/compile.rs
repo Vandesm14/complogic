@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::fs;
 
 use crate::gates::Gate;
 use eframe::epaint::ahash::HashSet;
-use petgraph::{graph::DiGraph, stable_graph::NodeIndex, Direction};
+use petgraph::{dot::Dot, graph::DiGraph, stable_graph::NodeIndex, Direction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -140,7 +140,8 @@ impl Compiler {
       };
     }
 
-    println!("graph: {graph:#?}");
+    fs::write("graph.dot", format!("{:?}", Dot::with_config(&graph, &[])))
+      .expect("Unable to write file");
 
     let mut queue: Vec<usize> = layers[0].clone().iter().copied().collect();
 
