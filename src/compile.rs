@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, thread::current};
 
 use crate::gates::Gate;
 use eframe::epaint::ahash::HashSet;
@@ -121,7 +121,13 @@ impl Compiler {
           }
         }
       }));
-    let mut layers: Vec<HashSet<usize>> = vec![HashSet::default()];
+
+    let mut layers: Vec<HashSet<usize>> = vec![];
+
+    let mut all_seen_nodes: HashSet<usize> = HashSet::default();
+    let mut current_layer = 0;
+    let mut queue: Vec<usize> = vec![];
+    let mut next_queue: Vec<usize> = vec![];
 
     // Add the data for each op
     for op in self.ops.iter() {
@@ -134,7 +140,7 @@ impl Compiler {
           graph[NodeIndex::from(reg)] = op;
 
           // Add the output of the immediate to the layers
-          layers[0].insert(reg);
+          queue.push(reg);
         }
         Op::Noop => {}
       };
@@ -143,23 +149,50 @@ impl Compiler {
     fs::write("graph.dot", format!("{:?}", Dot::with_config(&graph, &[])))
       .expect("Unable to write file");
 
-    let mut queue: Vec<usize> = layers[0].clone().iter().copied().collect();
-
-    // Add a layer for the first nodes after immediates
-    if layers.len() < 2 {
+    loop {
       layers.push(HashSet::default());
-    }
+      while let Some(node) = queue.pop() {
+        if all_seen_nodes.contains(&node) {
+          continue;
+        }
 
-    while let Some(node) = queue.pop() {
-      let children = graph
-        .neighbors_directed(NodeIndex::from(node), Direction::Outgoing)
-        .collect::<Vec<_>>();
+        let children = graph
+          .neighbors_directed(NodeIndex::from(node), Direction::Outgoing)
+          .collect::<Vec<_>>();
 
-      children.iter().for_each(|n| {
-        layers[1].insert(n.index());
-      });
+        children.iter().for_each(|n| {
+          next_queue.push(n.index());
+        });
 
-      println!("Node: {:?}, Neighbors: {:?}", node, children);
+        all_seen_nodes.insert(node);
+
+        let inputs = graph
+          .neighbors_directed(NodeIndex::from(node), Direction::Incoming)
+          .collect::<Vec<_>>();
+
+        let requires_new_layer =
+          queue.iter().any(|n| inputs.iter().any(|i| i.index() == *n));
+        if requires_new_layer {
+          if layers.len() == current_layer + 1 {
+            layers.push(HashSet::default());
+          }
+
+          next_queue.push(node);
+        } else {
+          layers[current_layer].insert(node);
+        }
+      }
+
+      queue.clear();
+      queue.extend(next_queue.iter());
+
+      next_queue.clear();
+
+      current_layer += 1;
+
+      if queue.is_empty() {
+        break;
+      }
     }
 
     println!("layers: {layers:#?}");
