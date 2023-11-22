@@ -459,20 +459,20 @@ impl Gate {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::Simulation;
+  use crate::Compiler;
 
   #[test]
   fn and_gate() {
-    let mut simulation = Simulation::new(2);
+    let mut compiler = Compiler::new(2);
     let [a, b] = [0, 1];
 
     let and = And {
       a,
       b,
-      out: simulation.alloc(),
+      out: compiler.alloc(),
     };
 
-    simulation.compile(vec![&Gate::from(and)]);
+    let mut simulation = compiler.compile(vec![&Gate::from(and)]);
 
     simulation.run(&[true, true]);
     assert!(simulation.registers[and.out]);
@@ -483,16 +483,16 @@ mod tests {
 
   #[test]
   fn or_gate() {
-    let mut simulation = Simulation::new(2);
+    let mut compiler = Compiler::new(2);
     let [a, b] = [0, 1];
 
     let or = Or {
       a,
       b,
-      out: simulation.alloc(),
+      out: compiler.alloc(),
     };
 
-    simulation.compile(vec![&Gate::from(or)]);
+    let mut simulation = compiler.compile(vec![&Gate::from(or)]);
 
     simulation.run(&[false, false]);
     assert!(!simulation.registers[or.out]);
@@ -509,16 +509,16 @@ mod tests {
 
   #[test]
   fn rs_nor_latch() {
-    let mut simulation = Simulation::new(2);
+    let mut compiler = Compiler::new(2);
     let [s, r] = [0, 1];
 
     let rslatch = RSLatch {
       s,
       r,
-      q: simulation.alloc(),
+      q: compiler.alloc(),
     };
 
-    simulation.compile(vec![&Gate::from(rslatch)]);
+    let mut simulation = compiler.compile(vec![&Gate::from(rslatch)]);
 
     // Reset the latch (due to the nature of logic, it starts as set when it's created)
     simulation.run(&[false, false]);
@@ -536,16 +536,16 @@ mod tests {
 
   #[test]
   fn dlatch() {
-    let mut simulation = Simulation::new(2);
+    let mut compiler = Compiler::new(2);
     let [d, e] = [0, 1];
 
     let dlatch = DLatch {
       d,
       e,
-      q: simulation.alloc(),
+      q: compiler.alloc(),
     };
 
-    simulation.compile(vec![&Gate::from(dlatch)]);
+    let mut simulation = compiler.compile(vec![&Gate::from(dlatch)]);
 
     simulation.run(&[false, false]);
     assert!(!simulation.registers[dlatch.q]);
@@ -562,15 +562,15 @@ mod tests {
 
   #[test]
   fn half_adder() {
-    let mut simulation = Simulation::new(2);
+    let mut compiler = Compiler::new(2);
     let [a, b] = [0, 1];
 
-    let s = simulation.alloc();
-    let c = simulation.alloc();
+    let s = compiler.alloc();
+    let c = compiler.alloc();
 
     let half_adder = HalfAdder { a, b, s, c };
 
-    simulation.compile(vec![&Gate::from(half_adder)]);
+    let mut simulation = compiler.compile(vec![&Gate::from(half_adder)]);
 
     simulation.run(&[false, false]);
     assert!(!simulation.registers[half_adder.s]);
@@ -591,15 +591,15 @@ mod tests {
 
   #[test]
   fn full_adder() {
-    let mut simulation = Simulation::new(3);
+    let mut compiler = Compiler::new(3);
     let [a, b, cin] = [0, 1, 2];
 
-    let s = simulation.alloc();
-    let cout = simulation.alloc();
+    let s = compiler.alloc();
+    let cout = compiler.alloc();
 
     let full_adder = FullAdder { a, b, cin, s, cout };
 
-    simulation.compile(vec![&Gate::from(full_adder)]);
+    let mut simulation = compiler.compile(vec![&Gate::from(full_adder)]);
 
     simulation.run(&[false, false, false]);
     assert!(!simulation.registers[full_adder.s]);
@@ -652,10 +652,10 @@ mod tests {
 
   #[test]
   fn four_bit_adder() {
-    let mut simulation = Simulation::new(8);
+    let mut compiler = Compiler::new(8);
     let [a4, a3, a2, a1, b4, b3, b2, b1] = [0, 1, 2, 3, 4, 5, 6, 7];
 
-    simulation.incrementer.skip(5);
+    compiler.incrementer.skip(5);
     let [s5, s4, s3, s2, s1] = [8, 9, 10, 11, 12];
 
     let four_bit_adder = FourBitAdder {
@@ -674,7 +674,7 @@ mod tests {
       cout: s5,
     };
 
-    simulation.compile(vec![&Gate::from(four_bit_adder)]);
+    let mut simulation = compiler.compile(vec![&Gate::from(four_bit_adder)]);
 
     for a in 0..0b1111 {
       let bin_a = number_to_bin_vec(a, 4);
