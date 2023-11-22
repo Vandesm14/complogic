@@ -155,8 +155,11 @@ impl Compiler {
     fs::write("graph.dot", format!("{:?}", Dot::with_config(&graph, &[])))
       .expect("Unable to write file");
 
+    // Flag to force-compute a gate if recursion is detected
+    let mut recursion_flag = false;
     loop {
-      while let Some(node) = queue.pop() {
+      for node in queue.iter() {
+        let node = *node;
         if !nodes_to_process.contains(&node) {
           continue;
         }
@@ -164,8 +167,12 @@ impl Compiler {
         let mut inputs =
           graph.neighbors_directed(NodeIndex::from(node), Direction::Incoming);
 
-        let requires_new_layer =
-          inputs.any(|i| nodes_to_process.contains(&i.index()));
+        let requires_new_layer = if recursion_flag {
+          recursion_flag = false;
+          recursion_flag
+        } else {
+          inputs.any(|i| nodes_to_process.contains(&i.index()))
+        };
 
         if requires_new_layer {
           next_queue.push(node);
@@ -181,9 +188,12 @@ impl Compiler {
         }
       }
 
-      queue.clear();
-      queue.extend(next_queue.iter());
+      queue.sort();
+      next_queue.sort();
 
+      recursion_flag = queue == next_queue;
+
+      std::mem::swap(&mut queue, &mut next_queue);
       next_queue.clear();
 
       if queue.is_empty() {
