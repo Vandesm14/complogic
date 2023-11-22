@@ -171,8 +171,6 @@ impl Compiler {
           next_queue.push(n.index());
         });
 
-        all_seen_nodes.insert(node);
-
         let inputs = graph
           .neighbors_directed(NodeIndex::from(node), Direction::Incoming)
           .collect::<Vec<_>>();
@@ -187,6 +185,7 @@ impl Compiler {
           next_queue.push(node);
         } else {
           layers[current_layer].insert(node);
+          all_seen_nodes.insert(node);
         }
       }
 

@@ -19,21 +19,29 @@ fn main() {
   // )
   // .expect("Failed to run native example");
 
-  use complogic::{Compiler, Gate, RSLatch};
+  use complogic::{And, Compiler, Gate, Xor};
 
   let mut compiler = Compiler::new(2);
-  let [s, r] = [0, 1];
+  let [a, b] = [0, 1];
 
-  let rs_latch = RSLatch {
-    q: compiler.alloc(),
-    s,
-    r,
-  };
+  let s = compiler.alloc();
+  let c = compiler.alloc();
 
-  let mut simulation = compiler.compile(vec![&Gate::from(rs_latch)]);
-  simulation.run(&[true, false]);
+  let xor = Xor { a, b, out: s };
+  let and = And { a, b, out: c };
+
+  let mut simulation =
+    compiler.compile(vec![&Gate::from(xor), &Gate::from(and)]);
+
+  simulation.run(&[false, true]);
   println!("Simulation: {:#?}", simulation);
-  println!("Q: {:?}", simulation.registers[rs_latch.q]);
+  println!(
+    "S: {}, C: {}",
+    simulation.registers[s], simulation.registers[c]
+  );
+
+  println!("xor: {:#?}", xor);
+  println!("and: {:#?}", and);
 }
 
 // #[cfg(target_arch = "wasm32")]
