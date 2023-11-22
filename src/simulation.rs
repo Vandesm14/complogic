@@ -22,7 +22,6 @@ impl Simulation {
         Op::Set(id, val) => {
           self.registers[id] = immediates.get(id).copied().unwrap_or(val);
         }
-        Op::Noop => {}
       }
     }
   }

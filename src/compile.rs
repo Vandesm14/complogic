@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs};
+use std::{collections::HashSet, fs, os::unix::process::CommandExt};
 
 use crate::{gates::Gate, Simulation};
 use petgraph::{dot::Dot, graph::DiGraph, stable_graph::NodeIndex, Direction};
@@ -11,15 +11,6 @@ pub enum Op {
 
   /// Sets the value of the register at the given address
   Set(usize, bool),
-
-  /// Noop
-  Noop,
-}
-
-impl Default for Op {
-  fn default() -> Self {
-    Self::Noop
-  }
 }
 
 pub type Ops = Vec<Op>;
@@ -116,41 +107,27 @@ impl Compiler {
       self.ops.extend(gate.create(&mut incrementer));
     });
 
-    let mut graph =
-      DiGraph::<Op, (), usize>::from_edges(self.ops.iter().flat_map(|op| {
-        match *op {
-          Op::Nand(a, b, out) => {
-            vec![(a, out), (b, out)]
-          }
-          _ => {
-            vec![]
-          }
+    let mut graph = DiGraph::<Op, (), usize>::default();
+    self.ops.iter().for_each(|op| {
+      graph.add_node(*op);
+    });
+
+    self.ops.iter().for_each(|op| {
+      if let Op::Nand(a, b, out) = op {
+        if *a < graph.node_count()
+          && *b < graph.node_count()
+          && *out < graph.node_count()
+        {
+          graph.add_edge(NodeIndex::from(*a), NodeIndex::from(*out), ());
+          graph.add_edge(NodeIndex::from(*b), NodeIndex::from(*out), ());
         }
-      }));
+      }
+    });
 
     let mut ops: Vec<Op> = vec![];
     let mut nodes_to_process: HashSet<usize> = HashSet::default();
     let mut queue: Vec<usize> = vec![];
     let mut next_queue: Vec<usize> = vec![];
-
-    // Add the data for each op
-    for op in self.ops.iter() {
-      let op = *op;
-      match op {
-        Op::Nand(_, _, out) => {
-          graph[NodeIndex::from(out)] = op;
-          nodes_to_process.insert(out);
-        }
-        Op::Set(reg, _) => {
-          graph[NodeIndex::from(reg)] = op;
-
-          // Add the output of the immediate to the layers
-          queue.push(reg);
-          nodes_to_process.insert(reg);
-        }
-        Op::Noop => {}
-      };
-    }
 
     fs::write("graph.dot", format!("{:?}", Dot::with_config(&graph, &[])))
       .expect("Unable to write file");
