@@ -19,8 +19,8 @@ impl Simulation {
 
           self.registers[out] = !(a && b);
         }
-        Op::Set(id, _) => {
-          self.registers[id] = immediates[id];
+        Op::Set(id, val) => {
+          self.registers[id] = immediates.get(id).copied().unwrap_or(val);
         }
         Op::Noop => {}
       }
@@ -31,6 +31,39 @@ impl Simulation {
 #[cfg(test)]
 mod tests {
   use crate::{Op, Simulation};
+
+  #[test]
+  /// Test the Set operation and ensure that it works as expected
+  fn op_set() {
+    let mut simulation = Simulation {
+      registers: vec![false, false, false],
+      ops: vec![Op::Set(0, false), Op::Set(1, true), Op::Set(2, false)],
+    };
+
+    simulation.run(&[false, false]);
+    assert!(!simulation.registers[0]);
+    assert!(!simulation.registers[1]);
+    assert!(!simulation.registers[2]);
+
+    simulation.run(&[true, true]);
+    assert!(simulation.registers[0]);
+    assert!(simulation.registers[1]);
+    assert!(!simulation.registers[2]);
+  }
+
+  #[test]
+  /// Test the Set operation when no immediate exists for the register
+  fn op_set_no_immediate() {
+    let mut simulation = Simulation {
+      registers: vec![false, false, false],
+      ops: vec![Op::Set(0, false), Op::Set(1, true), Op::Set(2, false)],
+    };
+
+    simulation.run(&[]);
+    assert!(!simulation.registers[0]);
+    assert!(simulation.registers[1]);
+    assert!(!simulation.registers[2]);
+  }
 
   #[test]
   /// Test the Nand operation and ensure that it works as expected
