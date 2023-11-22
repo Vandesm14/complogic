@@ -1,7 +1,7 @@
 use std::fs;
 
 use crate::{gates::Gate, Simulation};
-use eframe::epaint::ahash::HashSet;
+use eframe::{egui::accesskit::Node, epaint::ahash::HashSet};
 use petgraph::{dot::Dot, graph::DiGraph, stable_graph::NodeIndex, Direction};
 use serde::{Deserialize, Serialize};
 
@@ -129,10 +129,8 @@ impl Compiler {
         }
       }));
 
-    let mut layers: Vec<HashSet<usize>> = vec![];
-
-    let mut all_seen_nodes: HashSet<usize> = HashSet::default();
-    let mut current_layer = 0;
+    let mut ops: Vec<Op> = vec![];
+    let mut nodes_to_process: HashSet<usize> = HashSet::default();
     let mut queue: Vec<usize> = vec![];
     let mut next_queue: Vec<usize> = vec![];
 
@@ -142,12 +140,14 @@ impl Compiler {
       match op {
         Op::Nand(_, _, out) => {
           graph[NodeIndex::from(out)] = op;
+          nodes_to_process.insert(out);
         }
         Op::Set(reg, _) => {
           graph[NodeIndex::from(reg)] = op;
 
           // Add the output of the immediate to the layers
           queue.push(reg);
+          nodes_to_process.insert(reg);
         }
         Op::Noop => {}
       };
@@ -157,9 +157,8 @@ impl Compiler {
       .expect("Unable to write file");
 
     loop {
-      layers.push(HashSet::default());
       while let Some(node) = queue.pop() {
-        if all_seen_nodes.contains(&node) {
+        if !nodes_to_process.contains(&node) {
           continue;
         }
 
@@ -176,16 +175,13 @@ impl Compiler {
           .collect::<Vec<_>>();
 
         let requires_new_layer =
-          queue.iter().any(|n| inputs.iter().any(|i| i.index() == *n));
-        if requires_new_layer {
-          if layers.len() == current_layer + 1 {
-            layers.push(HashSet::default());
-          }
+          inputs.iter().any(|i| nodes_to_process.contains(&i.index()));
 
+        if requires_new_layer {
           next_queue.push(node);
         } else {
-          layers[current_layer].insert(node);
-          all_seen_nodes.insert(node);
+          ops.push(graph[NodeIndex::from(node)]);
+          nodes_to_process.remove(&node);
         }
       }
 
@@ -194,8 +190,6 @@ impl Compiler {
 
       next_queue.clear();
 
-      current_layer += 1;
-
       if queue.is_empty() {
         break;
       }
@@ -203,10 +197,7 @@ impl Compiler {
 
     Simulation {
       registers: vec![false; incrementer.val],
-      ops: layers
-        .into_iter()
-        .flat_map(|layer| layer.into_iter().map(|n| graph[NodeIndex::from(n)]))
-        .collect(),
+      ops,
     }
   }
 }

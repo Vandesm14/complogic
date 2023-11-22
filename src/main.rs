@@ -19,29 +19,22 @@ fn main() {
   // )
   // .expect("Failed to run native example");
 
-  use complogic::{And, Compiler, Gate, Xor};
+  use complogic::{Compiler, FullAdder, Gate};
 
-  let mut compiler = Compiler::new(2);
-  let [a, b] = [0, 1];
+  let mut compiler = Compiler::new(3);
+  let [a, b, cin] = [0, 1, 2];
 
   let s = compiler.alloc();
-  let c = compiler.alloc();
+  let cout = compiler.alloc();
 
-  let xor = Xor { a, b, out: s };
-  let and = And { a, b, out: c };
+  let full_adder = FullAdder { a, b, cin, s, cout };
 
-  let mut simulation =
-    compiler.compile(vec![&Gate::from(xor), &Gate::from(and)]);
+  let mut simulation = compiler.compile(vec![&Gate::from(full_adder)]);
+  simulation.run(&[false, false, false]);
+  println!("{:#?}", simulation);
 
-  simulation.run(&[false, true]);
-  println!("Simulation: {:#?}", simulation);
-  println!(
-    "S: {}, C: {}",
-    simulation.registers[s], simulation.registers[c]
-  );
-
-  println!("xor: {:#?}", xor);
-  println!("and: {:#?}", and);
+  println!("s: {}", simulation.registers[s]);
+  println!("cout: {}", simulation.registers[cout]);
 }
 
 // #[cfg(target_arch = "wasm32")]
