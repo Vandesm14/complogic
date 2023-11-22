@@ -19,22 +19,35 @@ fn main() {
   // )
   // .expect("Failed to run native example");
 
-  use complogic::{Compiler, FullAdder, Gate};
+  // use complogic::{Compiler, FullAdder, Gate};
 
-  let mut compiler = Compiler::new(3);
-  let [a, b, cin] = [0, 1, 2];
+  // let mut compiler = Compiler::new(3);
+  // let [a, b, cin] = [0, 1, 2];
 
-  let s = compiler.alloc();
-  let cout = compiler.alloc();
+  // let s = compiler.alloc();
+  // let cout = compiler.alloc();
 
-  let full_adder = FullAdder { a, b, cin, s, cout };
+  // let full_adder = FullAdder { a, b, cin, s, cout };
 
-  let mut simulation = compiler.compile(vec![&Gate::from(full_adder)]);
-  simulation.run(&[false, false, false]);
-  println!("{:#?}", simulation);
+  // let mut simulation = compiler.compile(vec![&Gate::from(full_adder)]);
+  // simulation.run(&[false, false, false]);
+  // println!("{:#?}", simulation);
 
-  println!("s: {}", simulation.registers[s]);
-  println!("cout: {}", simulation.registers[cout]);
+  // println!("s: {}", simulation.registers[s]);
+  // println!("cout: {}", simulation.registers[cout]);
+
+  use complogic::{Compiler, Gate, RSLatch};
+
+  let mut compiler = Compiler::new(2);
+  let [s, r] = [0, 1];
+
+  let rslatch = RSLatch {
+    s,
+    r,
+    q: compiler.alloc(),
+  };
+
+  let mut simulation = compiler.compile(vec![&Gate::from(rslatch)]);
 }
 
 // #[cfg(target_arch = "wasm32")]

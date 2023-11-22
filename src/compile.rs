@@ -162,26 +162,23 @@ impl Compiler {
           continue;
         }
 
-        let children = graph
-          .neighbors_directed(NodeIndex::from(node), Direction::Outgoing)
-          .collect::<Vec<_>>();
-
-        children.iter().for_each(|n| {
-          next_queue.push(n.index());
-        });
-
-        let inputs = graph
-          .neighbors_directed(NodeIndex::from(node), Direction::Incoming)
-          .collect::<Vec<_>>();
+        let mut inputs =
+          graph.neighbors_directed(NodeIndex::from(node), Direction::Incoming);
 
         let requires_new_layer =
-          inputs.iter().any(|i| nodes_to_process.contains(&i.index()));
+          inputs.any(|i| nodes_to_process.contains(&i.index()));
 
         if requires_new_layer {
           next_queue.push(node);
         } else {
           ops.push(graph[NodeIndex::from(node)]);
           nodes_to_process.remove(&node);
+
+          graph
+            .neighbors_directed(NodeIndex::from(node), Direction::Outgoing)
+            .for_each(|n| {
+              next_queue.push(n.index());
+            });
         }
       }
 
