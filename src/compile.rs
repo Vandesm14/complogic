@@ -1,6 +1,6 @@
-use std::{fs, thread::current};
+use std::fs;
 
-use crate::gates::Gate;
+use crate::{gates::Gate, Simulation};
 use eframe::epaint::ahash::HashSet;
 use petgraph::{dot::Dot, graph::DiGraph, stable_graph::NodeIndex, Direction};
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ impl Default for Incrementer {
   }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct Compiler {
   /// The number of immediate values to allocate when running the simulation
   pub immediate_count: usize,
@@ -68,6 +68,15 @@ pub struct Compiler {
 
   /// Incrementer for allocating registers
   pub incrementer: Incrementer,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompilerResult {
+  /// The number of registers allocated
+  pub register_count: usize,
+
+  /// Sorted layers of ops to run
+  pub layers: Vec<Vec<Op>>,
 }
 
 impl Compiler {
@@ -100,7 +109,7 @@ impl Compiler {
   }
 
   /// Compiles a list of gates into Ops
-  pub fn compile(&mut self, gate: Vec<&Gate>) {
+  pub fn compile(&mut self, gate: Vec<&Gate>) -> Simulation {
     self.reset_ops();
 
     // Cloning incrementer since we are generating ops and we don't
@@ -195,7 +204,19 @@ impl Compiler {
       }
     }
 
-    println!("layers: {layers:#?}");
+    Simulation {
+      registers: vec![false; incrementer.val],
+      layers: layers
+        .into_iter()
+        .map(|layer| {
+          layer
+            .into_iter()
+            .map(|n| graph[NodeIndex::from(n)])
+            .collect()
+        })
+        .rev()
+        .collect(),
+    }
   }
 }
 

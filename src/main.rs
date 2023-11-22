@@ -30,9 +30,8 @@ fn main() {
     r,
   };
 
-  compiler.compile(vec![&Gate::from(or)]);
-  println!("{:?}", compiler.ops);
-  println!("Q: {:?}", or.q);
+  let simulation = compiler.compile(vec![&Gate::from(or)]);
+  println!("Simulation: {:#?}", simulation);
 }
 
 // #[cfg(target_arch = "wasm32")]
