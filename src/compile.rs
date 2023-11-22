@@ -155,7 +155,7 @@ impl Compiler {
     fs::write("graph.dot", format!("{:?}", Dot::with_config(&graph, &[])))
       .expect("Unable to write file");
 
-    // Flag to force-compute a gate if recursion is detected
+    // Flag to force-add all gates in the queue if recursion is detected
     let mut recursion_flag = false;
     loop {
       for node in queue.iter() {
@@ -168,8 +168,7 @@ impl Compiler {
           graph.neighbors_directed(NodeIndex::from(node), Direction::Incoming);
 
         let requires_new_layer = if recursion_flag {
-          recursion_flag = false;
-          recursion_flag
+          false
         } else {
           inputs.any(|i| nodes_to_process.contains(&i.index()))
         };
