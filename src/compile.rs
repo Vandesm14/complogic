@@ -218,29 +218,6 @@ mod tests {
 
   use super::*;
 
-  // #[test]
-  // /// Test the Nand operation and ensure that it works as expected
-  // fn op_nand() {
-  //   let mut compiler = Compiler {
-  //     registers: vec![false, false, false],
-  //     ops: vec![Op::Nand(0, 1, 2)],
-  //     immediate_count: 2,
-  //     incrementer: Incrementer::set(2 - 1),
-  //   };
-
-  //   simulation.run(&[false, false]);
-  //   assert!(simulation.registers[2]);
-
-  //   simulation.run(&[true, false]);
-  //   assert!(simulation.registers[2]);
-
-  //   simulation.run(&[false, true]);
-  //   assert!(simulation.registers[2]);
-
-  //   simulation.run(&[true, true]);
-  //   assert!(!simulation.registers[2]);
-  // }
-
   #[test]
   /// Test that allocation increments properly and doesn't allocate any registers
   fn alloc_lazy_increment() {

@@ -27,3 +27,29 @@ impl Simulation {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use crate::{Op, Simulation};
+
+  #[test]
+  /// Test the Nand operation and ensure that it works as expected
+  fn op_nand() {
+    let mut simulation = Simulation {
+      registers: vec![false, false, false],
+      ops: vec![Op::Set(0, false), Op::Set(1, false), Op::Nand(0, 1, 2)],
+    };
+
+    simulation.run(&[false, false]);
+    assert!(simulation.registers[2]);
+
+    simulation.run(&[true, false]);
+    assert!(simulation.registers[2]);
+
+    simulation.run(&[false, true]);
+    assert!(simulation.registers[2]);
+
+    simulation.run(&[true, true]);
+    assert!(!simulation.registers[2]);
+  }
+}
