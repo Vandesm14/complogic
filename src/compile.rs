@@ -1,7 +1,6 @@
-use std::fs;
+use std::{collections::HashSet, fs};
 
 use crate::{gates::Gate, Simulation};
-use eframe::{egui::accesskit::Node, epaint::ahash::HashSet};
 use petgraph::{dot::Dot, graph::DiGraph, stable_graph::NodeIndex, Direction};
 use serde::{Deserialize, Serialize};
 
