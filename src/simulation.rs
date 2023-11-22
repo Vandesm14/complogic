@@ -2,16 +2,28 @@ use crate::Op;
 
 #[derive(Debug, Clone)]
 pub struct Simulation {
-  /// Stores the IDs of the nodes to evaluate in parallel
-  /// It is ordered in last to first, where the first is popped off
-  pub layers: Vec<Vec<Op>>,
+  /// Stores the ops to evaluate
+  pub ops: Vec<Op>,
 
   /// Stores the values of the registers
   pub registers: Vec<bool>,
 }
 
 impl Simulation {
-  fn run(immediates: &[usize]) {
-    todo!()
+  pub fn run(&mut self, immediates: &[bool]) {
+    for op in self.ops.iter() {
+      match *op {
+        Op::Nand(a, b, out) => {
+          let a = self.registers[a];
+          let b = self.registers[b];
+
+          self.registers[out] = !(a && b);
+        }
+        Op::Set(id, _) => {
+          self.registers[id] = immediates[id];
+        }
+        Op::Noop => {}
+      }
+    }
   }
 }

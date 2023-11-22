@@ -70,15 +70,6 @@ pub struct Compiler {
   pub incrementer: Incrementer,
 }
 
-#[derive(Debug, Clone)]
-pub struct CompilerResult {
-  /// The number of registers allocated
-  pub register_count: usize,
-
-  /// Sorted layers of ops to run
-  pub layers: Vec<Vec<Op>>,
-}
-
 impl Compiler {
   /// Creates a new compiler
   pub fn new(immediate_count: usize) -> Self {
@@ -206,15 +197,9 @@ impl Compiler {
 
     Simulation {
       registers: vec![false; incrementer.val],
-      layers: layers
+      ops: layers
         .into_iter()
-        .map(|layer| {
-          layer
-            .into_iter()
-            .map(|n| graph[NodeIndex::from(n)])
-            .collect()
-        })
-        .rev()
+        .flat_map(|layer| layer.into_iter().map(|n| graph[NodeIndex::from(n)]))
         .collect(),
     }
   }

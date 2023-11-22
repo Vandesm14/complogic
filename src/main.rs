@@ -24,14 +24,16 @@ fn main() {
   let mut compiler = Compiler::new(2);
   let [s, r] = [0, 1];
 
-  let or = RSLatch {
+  let rs_latch = RSLatch {
     q: compiler.alloc(),
     s,
     r,
   };
 
-  let simulation = compiler.compile(vec![&Gate::from(or)]);
+  let mut simulation = compiler.compile(vec![&Gate::from(rs_latch)]);
+  simulation.run(&[true, false]);
   println!("Simulation: {:#?}", simulation);
+  println!("Q: {:?}", simulation.registers[rs_latch.q]);
 }
 
 // #[cfg(target_arch = "wasm32")]
