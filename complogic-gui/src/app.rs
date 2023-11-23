@@ -6,7 +6,7 @@ use eframe::{
 };
 use egui_node_graph::*;
 
-use complogic::{And, Compiler, Gate, Simulation};
+use complogic::{And, Compiler, Gate, Nand, Not, Simulation};
 
 // ========= First, define your user data types =============
 
@@ -60,6 +60,8 @@ impl ValueType {
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum NodeTempl {
   And,
+  Not,
+  Nand,
   Immediate,
 }
 
@@ -120,6 +122,8 @@ impl NodeTemplateTrait for NodeTempl {
   ) -> Cow<'_, str> {
     Cow::Borrowed(match self {
       NodeTempl::And => "And Gate",
+      NodeTempl::Not => "Not Gate",
+      NodeTempl::Nand => "Nand Gate",
       NodeTempl::Immediate => "Immediate",
     })
   }
@@ -130,7 +134,7 @@ impl NodeTemplateTrait for NodeTempl {
     _user_state: &mut Self::UserState,
   ) -> Vec<&'static str> {
     match self {
-      NodeTempl::And => vec!["Gate"],
+      NodeTempl::And | NodeTempl::Not | NodeTempl::Nand => vec!["Gates"],
       NodeTempl::Immediate => vec!["Tools"],
     }
   }
@@ -172,6 +176,7 @@ impl NodeTemplateTrait for NodeTempl {
     };
 
     match self {
+      // Gates
       NodeTempl::And => {
         // The first input param doesn't use the closure so we can comment
         // it in more detail.
@@ -193,6 +198,17 @@ impl NodeTemplateTrait for NodeTempl {
         input_scalar(graph, "B");
         output_scalar(graph, "out");
       }
+      NodeTempl::Not => {
+        input_scalar(graph, "A");
+        output_scalar(graph, "out");
+      }
+      NodeTempl::Nand => {
+        input_scalar(graph, "A");
+        input_scalar(graph, "B");
+        output_scalar(graph, "out");
+      }
+
+      // Tools
       NodeTempl::Immediate => {
         // The first input param doesn't use the closure so we can comment
         // it in more detail.
@@ -225,7 +241,12 @@ impl NodeTemplateIter for AllNodeTempls {
     // This function must return a list of node kinds, which the node finder
     // will use to display it to the user. Crates like strum can reduce the
     // boilerplate in enumerating all variants of an enum.
-    vec![NodeTempl::And, NodeTempl::Immediate]
+    vec![
+      NodeTempl::And,
+      NodeTempl::Not,
+      NodeTempl::Nand,
+      NodeTempl::Immediate,
+    ]
   }
 }
 
@@ -484,6 +505,84 @@ impl eframe::App for NodeGraphExample {
             let gate = And { a, b, out };
             self.user_state.gates.insert(id, Gate::from(gate));
           }
+          NodeTempl::Not => {
+            let mut in_ids = data.input_ids();
+            let mut out_ids = data.output_ids();
+
+            let a_out = self.state.graph.connection(in_ids.next().unwrap());
+
+            if a_out.is_none() {
+              continue;
+            }
+
+            let a_out = a_out.unwrap();
+
+            let a = match self.user_state.outs_to_regs.get(&a_out) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.compiler.alloc();
+                self.user_state.outs_to_regs.insert(a_out, reg);
+                reg
+              }
+            };
+
+            let out_id = out_ids.next().unwrap();
+            let out = match self.user_state.outs_to_regs.get(&out_id) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.compiler.alloc();
+                self.user_state.outs_to_regs.insert(out_id, reg);
+                reg
+              }
+            };
+
+            let gate = Not { a, out };
+            self.user_state.gates.insert(id, Gate::from(gate));
+          }
+          NodeTempl::Nand => {
+            let mut in_ids = data.input_ids();
+            let mut out_ids = data.output_ids();
+
+            let a_out = self.state.graph.connection(in_ids.next().unwrap());
+            let b_out = self.state.graph.connection(in_ids.next().unwrap());
+
+            if a_out.is_none() || b_out.is_none() {
+              continue;
+            }
+
+            let a_out = a_out.unwrap();
+            let b_out = b_out.unwrap();
+
+            let a = match self.user_state.outs_to_regs.get(&a_out) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.compiler.alloc();
+                self.user_state.outs_to_regs.insert(a_out, reg);
+                reg
+              }
+            };
+            let b = match self.user_state.outs_to_regs.get(&b_out) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.compiler.alloc();
+                self.user_state.outs_to_regs.insert(b_out, reg);
+                reg
+              }
+            };
+
+            let out_id = out_ids.next().unwrap();
+            let out = match self.user_state.outs_to_regs.get(&out_id) {
+              Some(reg) => *reg,
+              None => {
+                let reg = self.user_state.compiler.alloc();
+                self.user_state.outs_to_regs.insert(out_id, reg);
+                reg
+              }
+            };
+
+            let gate = Nand { a, b, out };
+            self.user_state.gates.insert(id, Gate::from(gate));
+          }
 
           // TODO: Implement
           NodeTempl::Immediate => {}
@@ -690,6 +789,30 @@ pub fn evaluate_node(
       };
 
       evaluator.output_scalar("out", value)
+    }
+    NodeTempl::Not => {
+      let mut outs = node.output_ids();
+      let out_id = outs.next().unwrap();
+
+      let value = if let Some(reg) = user_state.outs_to_regs.get(&out_id) {
+        user_state.simulation.register(*reg)
+      } else {
+        false
+      };
+
+      evaluator.output_scalar("out", !value)
+    }
+    NodeTempl::Nand => {
+      let mut outs = node.output_ids();
+      let out_id = outs.next().unwrap();
+
+      let value = if let Some(reg) = user_state.outs_to_regs.get(&out_id) {
+        user_state.simulation.register(*reg)
+      } else {
+        false
+      };
+
+      evaluator.output_scalar("out", !value)
     }
     NodeTempl::Immediate => {
       let a = evaluator.input_scalar("A", user_state)?;
