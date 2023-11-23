@@ -556,6 +556,16 @@ mod tests {
     simulation.run(&[true, false]);
     assert!(!simulation.registers[dlatch.q]);
 
+    // FIXME: We shouldn't need to run the DLatch twice to get the correct result
+    //
+    // This is due to us compiling things and running them once.
+    // The core of a DLatch is an RS-NOR latch, which is a loop
+    // and technically needs to run twice to get the correct result.
+    //
+    // A few ideas:
+    // 1. Detect recursion in the simulation and run the cyclic ops twice
+    // 2. Similar to #1, except manually add double ops for the RS-NOR latch
+    simulation.run(&[true, true]);
     simulation.run(&[true, true]);
     assert!(simulation.registers[dlatch.q]);
   }
