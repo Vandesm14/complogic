@@ -9,6 +9,3 @@ serde = { version = "1.0", features = ["derive"] }
 eframe = { version = "0.21.0", features = ["persistence"] }
 egui_node_graph = { git = "https://github.com/setzer22/egui_node_graph", rev = "3068b8cd9bad3a419682af273c01cd700bda2739", features = ["persistence"] }
 complogic = { path = "../complogic" }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4"
