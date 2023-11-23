@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::Op;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Simulation {
   /// Stores the ops to evaluate
   pub ops: Vec<Op>,
@@ -10,6 +12,7 @@ pub struct Simulation {
 }
 
 impl Simulation {
+  /// Runs the simulation
   pub fn run(&mut self, immediates: &[bool]) {
     for op in self.ops.iter() {
       match *op {
@@ -24,6 +27,11 @@ impl Simulation {
         }
       }
     }
+  }
+
+  /// Gets a register value
+  pub fn register(&self, id: usize) -> bool {
+    self.registers[id]
   }
 }
 
