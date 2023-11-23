@@ -15,7 +15,7 @@ With this design decision comes the power to ignore propagation entirely and set
 
 ## How?
 
-The VM only cares about outputs. Inputs are immediates, given when running the simulation. Any gate that needs an input, can either use the output of another gate, or the immediates. This allows everything to be incredibly dense, inside the register stack of the VM.
+The VM only cares about outputs. Inputs are immediates, provided when running the simulation. Any gate that needs an input, can either use the output of another gate, or the immediates. This allows everything to be packed within the register stack of the VM, only storing the necessary values.
 
 ## Credits
 
