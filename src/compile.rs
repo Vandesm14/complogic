@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs, os::unix::process::CommandExt};
+use std::{collections::HashSet, fs};
 
 use crate::{gates::Gate, Simulation};
 use petgraph::{dot::Dot, graph::DiGraph, stable_graph::NodeIndex, Direction};
@@ -48,7 +48,7 @@ impl Default for Incrementer {
   }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Compiler {
   /// The number of immediate values to allocate when running the simulation
   pub immediate_count: usize,
@@ -128,6 +128,24 @@ impl Compiler {
     let mut nodes_to_process: HashSet<usize> = HashSet::default();
     let mut queue: Vec<usize> = vec![];
     let mut next_queue: Vec<usize> = vec![];
+
+    // Add the data for each op
+    for op in self.ops.iter() {
+      let op = *op;
+      match op {
+        Op::Nand(_, _, out) => {
+          graph[NodeIndex::from(out)] = op;
+          nodes_to_process.insert(out);
+        }
+        Op::Set(reg, _) => {
+          graph[NodeIndex::from(reg)] = op;
+
+          // Add the output of the immediate to the layers
+          queue.push(reg);
+          nodes_to_process.insert(reg);
+        }
+      };
+    }
 
     fs::write("graph.dot", format!("{:?}", Dot::with_config(&graph, &[])))
       .expect("Unable to write file");
