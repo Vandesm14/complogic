@@ -329,6 +329,29 @@ impl NodeDataTrait for NodeData {
       }
     }
 
+    let outputs = &_graph[node_id].outputs;
+    for (name, id) in outputs.iter() {
+      let reg = user_state.outs_to_regs.get(id);
+      let value = match reg {
+        Some(reg) => user_state.simulation.register(*reg),
+        None => false,
+      };
+
+      let button = egui::Button::new(
+        egui::RichText::new(format!("{}: {}", name, value)).color(
+          match value {
+            true => egui::Color32::BLACK,
+            false => egui::Color32::WHITE,
+          },
+        ),
+      )
+      .fill(match value {
+        true => egui::Color32::GREEN,
+        false => egui::Color32::RED,
+      });
+      ui.add(button);
+    }
+
     responses
   }
 }
@@ -527,18 +550,18 @@ impl eframe::App for NodeGraphExample {
     }
 
     if changed {
-      println!();
-      println!("Gates: {:?}", self.user_state.gates);
-      println!("Immediates: {:?}", self.user_state.immediates);
-      println!("Regs: {:?}", self.user_state.outs_to_regs);
+      // println!();
+      // println!("Gates: {:?}", self.user_state.gates);
+      // println!("Immediates: {:?}", self.user_state.immediates);
+      // println!("Regs: {:?}", self.user_state.outs_to_regs);
 
       self.user_state.simulation = self
         .user_state
         .compiler
         .compile(self.user_state.gates.values().collect::<Vec<_>>());
 
-      println!("Compiler: {:?}", self.user_state.compiler);
-      println!("Simulation: {:?}", self.user_state.simulation);
+      // println!("Compiler: {:?}", self.user_state.compiler);
+      // println!("Simulation: {:?}", self.user_state.simulation);
 
       let mut immediates: Vec<bool> =
         vec![false; self.user_state.compiler.immediate_count];
@@ -552,7 +575,7 @@ impl eframe::App for NodeGraphExample {
         });
 
       self.user_state.simulation.run(&immediates);
-      println!("Ran: {:?}", self.user_state.simulation);
+      // println!("Ran: {:?}", self.user_state.simulation);
     }
 
     for node_response in graph_response.node_responses {
