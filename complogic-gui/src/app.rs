@@ -6,7 +6,11 @@ use eframe::{
 };
 use egui_node_graph::*;
 
-use crate::{And, Compiler, Gate, Simulation};
+use complogic::{
+  Compiler, Gate,
+  And,
+  Simulation,
+};
 
 // ========= First, define your user data types =============
 

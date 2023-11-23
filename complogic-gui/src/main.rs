@@ -18,11 +18,10 @@
 //   vec
 // }
 
-use complogic::NodeGraphExample;
-
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+  use complogic_gui::NodeGraphExample;
   use eframe::egui::Visuals;
 
   eframe::run_native(
