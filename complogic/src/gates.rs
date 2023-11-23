@@ -644,21 +644,21 @@ mod tests {
     assert!(simulation.registers[full_adder.cout]);
   }
 
-  fn number_to_bin_vec(number: usize, size: usize) -> Vec<bool> {
-    let mut vec = vec![];
-    let mut number = number;
-    while number > 0 {
-      vec.push(number % 2 == 1);
-      number /= 2;
-    }
+  // fn number_to_bin_vec(number: usize, size: usize) -> Vec<bool> {
+  //   let mut vec = vec![];
+  //   let mut number = number;
+  //   while number > 0 {
+  //     vec.push(number % 2 == 1);
+  //     number /= 2;
+  //   }
 
-    while vec.len() < size {
-      vec.push(false);
-    }
+  //   while vec.len() < size {
+  //     vec.push(false);
+  //   }
 
-    vec.reverse();
-    vec
-  }
+  //   vec.reverse();
+  //   vec
+  // }
 
   // FIXME: This test is broken
   //
