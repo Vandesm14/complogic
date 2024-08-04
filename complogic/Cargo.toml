@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+wasm-bindgen.workspace = true
+serde-wasm-bindgen.workspace = true
+wasmer = "4.3.5"
+anyhow = "1.0.86"
