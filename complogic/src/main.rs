@@ -2,7 +2,8 @@ use wasmer::{imports, Instance, Module, Store, Value};
 
 fn main() -> anyhow::Result<()> {
   let module_wasm =
-    include_bytes!("../../complogic-gates/pkg/complogic_gates_bg.wasm");
+    std::fs::read("target/wasm32-unknown-unknown/debug/complogic_gates.wasm")
+      .unwrap();
 
   let mut store = Store::default();
   let module = Module::new(&store, module_wasm)?;

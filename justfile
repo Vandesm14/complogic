@@ -1,2 +1,5 @@
-build:
-  cd complogic-gates && wasm-pack build --target web
+build-wasm:
+  cargo build -p complogic-gates --target wasm32-unknown-unknown
+
+run: build-wasm
+  cargo run
