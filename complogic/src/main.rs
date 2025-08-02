@@ -1,5 +1,6 @@
+use std::path::Path;
+
 use serde::Deserialize;
-use std::cell::RefCell;
 use wasmer::Value;
 
 #[derive(Debug, Default)]
@@ -20,15 +21,13 @@ impl Simulation {
 
   fn execute(
     &mut self,
-    store: &mut wasmer::Store,
     module: impl AsRef<str>,
     gate: impl AsRef<str>,
     inputs: i32,
   ) -> Option<i32> {
     let gate_index = self.gate_index(module.as_ref(), gate.as_ref());
     if let Some(gate_index) = gate_index {
-      if let Some(instance) = self.instance_mut(module) {
-        let instance = instance.borrow();
+      if let Some((instance, store)) = self.get_wasm(module) {
         let entrypoint = instance
           .exports
           .get_function("gates")
@@ -84,13 +83,11 @@ impl Simulation {
     self.modules.iter_mut().find(|m| m.module.id == id)
   }
 
-  fn instance_mut(
+  fn get_wasm(
     &mut self,
     module: impl AsRef<str>,
-  ) -> Option<&RefCell<wasmer::Instance>> {
-    self
-      .module_mut(module.as_ref())
-      .and_then(|m| m.instance_mut())
+  ) -> Option<(&wasmer::Instance, &mut wasmer::Store)> {
+    self.module_mut(module.as_ref()).map(|m| m.get_wasm())
   }
 }
 
@@ -100,23 +97,47 @@ struct ModuleConfig {
   name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, PartialEq, Default, Deserialize)]
 struct Module {
   module: ModuleConfig,
   gates: Vec<Gate>,
 
   #[serde(skip)]
-  instance: Option<RefCell<wasmer::Instance>>,
+  instance: Option<wasmer::Instance>,
+  #[serde(skip)]
+  store: Option<wasmer::Store>,
 }
 
 impl Module {
+  fn include(wasm_path: impl AsRef<Path>, toml_path: impl AsRef<Path>) -> Self {
+    let mut store = wasmer::Store::default();
+    let wasm_module = wasmer::Module::from_file(&store, wasm_path)
+      .expect("Failed to load module");
+    let instance =
+      wasmer::Instance::new(&mut store, &wasm_module, &wasmer::Imports::new())
+        .expect("Failed to instantiate module");
+    let module: Module = toml::from_str(
+      &std::fs::read_to_string(toml_path).expect("Failed to read module file"),
+    )
+    .expect("Failed to parse toml file");
+
+    module.with_instance(instance).with_store(store)
+  }
+
   fn with_instance(mut self, instance: wasmer::Instance) -> Self {
-    self.instance = Some(RefCell::new(instance));
+    self.instance = Some(instance);
     self
   }
 
-  fn instance_mut(&mut self) -> Option<&RefCell<wasmer::Instance>> {
-    self.instance.as_ref()
+  fn with_store(mut self, store: wasmer::Store) -> Self {
+    self.store = Some(store);
+    self
+  }
+
+  fn get_wasm(&mut self) -> (&wasmer::Instance, &mut wasmer::Store) {
+    let instance = self.instance.as_ref().expect("Module instance not set");
+    let store = self.store.as_mut().expect("Module store not set");
+    (instance, store)
   }
 
   fn gate(&self, id: impl AsRef<str>) -> Option<&Gate> {
@@ -135,30 +156,30 @@ struct Gate {
 }
 
 fn main() -> anyhow::Result<()> {
-  let mut store = wasmer::Store::default();
-  let module = wasmer::Module::from_file(
-    &store,
+  let std = Module::include(
     "target/wasm32-unknown-unknown/debug/complogic_gates.wasm",
-  )?;
-  let instance =
-    wasmer::Instance::new(&mut store, &module, &wasmer::Imports::new())?;
-
-  let gates_module: Module = toml::from_str(
-    &std::fs::read_to_string("complogic-gates/gates.toml").unwrap(),
-  )
-  .unwrap();
+    "complogic-gates/gates.toml",
+  );
+  let std2 = Module::include(
+    "target/wasm32-unknown-unknown/debug/complogic_gates.wasm",
+    "complogic-gates/gates2.toml",
+  );
 
   let mut simulation = Simulation::new();
-  simulation.add_module(gates_module.with_instance(instance));
+  simulation.add_module(std);
+  simulation.add_module(std2);
 
-  let result = simulation.execute(&mut store, "std", "counter", 0);
+  let result = simulation.execute("std", "counter", 0);
   assert_eq!(result, Some(1));
 
-  let result = simulation.execute(&mut store, "std", "counter", 0);
+  let result = simulation.execute("std2", "counter", 0);
+  assert_eq!(result, Some(1));
+
+  let result = simulation.execute("std", "counter", 0);
   assert_eq!(result, Some(2));
 
-  let result = simulation.execute(&mut store, "std", "counter", 0);
-  assert_eq!(result, Some(3));
+  let result = simulation.execute("std2", "counter", 0);
+  assert_eq!(result, Some(2));
 
   Ok(())
 }
