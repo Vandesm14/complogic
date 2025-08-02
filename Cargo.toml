@@ -1,5 +1,5 @@
 [workspace]
 resolver = "2"
-members = ["complogic", "complogic-gates"]
+members = ["complogic", "complogic-gates", "complogic-types"]
 
 [workspace.dependencies]

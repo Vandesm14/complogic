@@ -1,10 +1,9 @@
 [package]
-name = "complogic-gates"
+name = "complogic-types"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-complogic-types = { path = "../complogic-types" }
 
 [lib]
 crate-type = ["cdylib"]
