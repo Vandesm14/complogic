@@ -1,4 +1,4 @@
-[gates.and_gate]
+[[gates]]
 name = "And Gate"
 description = "A gate that performs a logical AND operation on two inputs."
 inputs = 2
