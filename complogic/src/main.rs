@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use wasmer::Value;
@@ -85,6 +85,7 @@ impl Simulation {
 struct ModuleConfig {
   id: String,
   name: String,
+  src: PathBuf,
 }
 
 #[derive(Debug, PartialEq, Default, Deserialize)]
@@ -99,20 +100,19 @@ struct Module {
 }
 
 impl Module {
-  fn from_files(
-    wasm_path: impl AsRef<Path>,
-    toml_path: impl AsRef<Path>,
-  ) -> Self {
-    let mut store = wasmer::Store::default();
-    let wasm_module = wasmer::Module::from_file(&store, wasm_path)
-      .expect("Failed to load module");
-    let instance =
-      wasmer::Instance::new(&mut store, &wasm_module, &wasmer::Imports::new())
-        .expect("Failed to instantiate module");
+  fn from_file(toml_path: impl AsRef<Path>) -> Self {
     let module: Module = toml::from_str(
       &std::fs::read_to_string(toml_path).expect("Failed to read module file"),
     )
     .expect("Failed to parse toml file");
+
+    let mut store = wasmer::Store::default();
+    let wasm_module =
+      wasmer::Module::from_file(&store, module.module.src.clone())
+        .expect("Failed to load module");
+    let instance =
+      wasmer::Instance::new(&mut store, &wasm_module, &wasmer::Imports::new())
+        .expect("Failed to instantiate module");
 
     module.with_instance(instance).with_store(store)
   }
@@ -144,10 +144,7 @@ struct Gate {
 }
 
 fn main() -> anyhow::Result<()> {
-  let std = Module::from_files(
-    "target/wasm32-unknown-unknown/debug/complogic_gates.wasm",
-    "complogic-gates/gates.toml",
-  );
+  let std = Module::from_file("complogic-gates/gates.toml");
 
   let mut simulation = Simulation::new();
   simulation.add_module(std);

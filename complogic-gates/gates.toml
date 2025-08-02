@@ -1,6 +1,7 @@
 [module]
 id = "std"
 name = "Complogic Gates"
+src = "target/wasm32-unknown-unknown/debug/complogic_gates.wasm"
 
 [[gates]]
 id = "and"
