@@ -12,11 +12,13 @@ fn main() -> anyhow::Result<()> {
   let instance = Instance::new(&mut store, &module, &import_object)?;
 
   let gates = instance.exports.get_function("gates")?;
-  let result = gates.call(
-    &mut store,
-    &[Value::I32(0), Value::I32(0), Value::I32(0b11)],
-  )?;
+  let result =
+    gates.call(&mut store, &[Value::I32(0), Value::I32(1), Value::I32(0)])?;
   assert_eq!(result[0], Value::I32(1));
+
+  let result =
+    gates.call(&mut store, &[Value::I32(0), Value::I32(1), Value::I32(0)])?;
+  assert_eq!(result[0], Value::I32(2));
 
   Ok(())
 }
