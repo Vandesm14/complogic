@@ -19,6 +19,34 @@ impl Simulation {
     self.modules.push(module);
   }
 
+  fn module(&self, id: impl AsRef<str>) -> Option<&Module> {
+    let id = id.as_ref();
+    self.modules.iter().find(|m| m.module.id == id)
+  }
+
+  fn module_mut(&mut self, id: impl AsRef<str>) -> Option<&mut Module> {
+    let id = id.as_ref();
+    self.modules.iter_mut().find(|m| m.module.id == id)
+  }
+
+  fn gate_index(
+    &self,
+    module: impl AsRef<str>,
+    gate: impl AsRef<str>,
+  ) -> Option<i32> {
+    self
+      .module(module.as_ref())
+      .and_then(|m| m.gates.iter().position(|g| g.id == gate.as_ref()))
+      .map(|i| i as i32)
+  }
+
+  fn wasm(
+    &mut self,
+    module: impl AsRef<str>,
+  ) -> Option<(&wasmer::Instance, &mut wasmer::Store)> {
+    self.module_mut(module.as_ref()).map(|m| m.wasm())
+  }
+
   fn execute(
     &mut self,
     module: impl AsRef<str>,
@@ -27,7 +55,7 @@ impl Simulation {
   ) -> Option<i32> {
     let gate_index = self.gate_index(module.as_ref(), gate.as_ref());
     if let Some(gate_index) = gate_index {
-      if let Some((instance, store)) = self.get_wasm(module) {
+      if let Some((instance, store)) = self.wasm(module) {
         let entrypoint = instance
           .exports
           .get_function("gates")
@@ -51,44 +79,6 @@ impl Simulation {
       None
     }
   }
-
-  fn module(&self, id: impl AsRef<str>) -> Option<&Module> {
-    let id = id.as_ref();
-    self.modules.iter().find(|m| m.module.id == id)
-  }
-
-  fn gate(
-    &self,
-    module: impl AsRef<str>,
-    gate: impl AsRef<str>,
-  ) -> Option<&Gate> {
-    self
-      .module(module.as_ref())
-      .and_then(|m| m.gate(gate.as_ref()))
-  }
-
-  fn gate_index(
-    &self,
-    module: impl AsRef<str>,
-    gate: impl AsRef<str>,
-  ) -> Option<i32> {
-    self
-      .module(module.as_ref())
-      .and_then(|m| m.gates.iter().position(|g| g.id == gate.as_ref()))
-      .map(|i| i as i32)
-  }
-
-  fn module_mut(&mut self, id: impl AsRef<str>) -> Option<&mut Module> {
-    let id = id.as_ref();
-    self.modules.iter_mut().find(|m| m.module.id == id)
-  }
-
-  fn get_wasm(
-    &mut self,
-    module: impl AsRef<str>,
-  ) -> Option<(&wasmer::Instance, &mut wasmer::Store)> {
-    self.module_mut(module.as_ref()).map(|m| m.get_wasm())
-  }
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
@@ -109,7 +99,10 @@ struct Module {
 }
 
 impl Module {
-  fn include(wasm_path: impl AsRef<Path>, toml_path: impl AsRef<Path>) -> Self {
+  fn from_files(
+    wasm_path: impl AsRef<Path>,
+    toml_path: impl AsRef<Path>,
+  ) -> Self {
     let mut store = wasmer::Store::default();
     let wasm_module = wasmer::Module::from_file(&store, wasm_path)
       .expect("Failed to load module");
@@ -134,15 +127,10 @@ impl Module {
     self
   }
 
-  fn get_wasm(&mut self) -> (&wasmer::Instance, &mut wasmer::Store) {
+  fn wasm(&mut self) -> (&wasmer::Instance, &mut wasmer::Store) {
     let instance = self.instance.as_ref().expect("Module instance not set");
     let store = self.store.as_mut().expect("Module store not set");
     (instance, store)
-  }
-
-  fn gate(&self, id: impl AsRef<str>) -> Option<&Gate> {
-    let id = id.as_ref();
-    self.gates.iter().find(|g| g.id == id)
   }
 }
 
@@ -156,11 +144,11 @@ struct Gate {
 }
 
 fn main() -> anyhow::Result<()> {
-  let std = Module::include(
+  let std = Module::from_files(
     "target/wasm32-unknown-unknown/debug/complogic_gates.wasm",
     "complogic-gates/gates.toml",
   );
-  let std2 = Module::include(
+  let std2 = Module::from_files(
     "target/wasm32-unknown-unknown/debug/complogic_gates.wasm",
     "complogic-gates/gates2.toml",
   );
