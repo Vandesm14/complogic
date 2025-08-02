@@ -148,25 +148,14 @@ fn main() -> anyhow::Result<()> {
     "target/wasm32-unknown-unknown/debug/complogic_gates.wasm",
     "complogic-gates/gates.toml",
   );
-  let std2 = Module::from_files(
-    "target/wasm32-unknown-unknown/debug/complogic_gates.wasm",
-    "complogic-gates/gates2.toml",
-  );
 
   let mut simulation = Simulation::new();
   simulation.add_module(std);
-  simulation.add_module(std2);
 
   let result = simulation.execute("std", "counter", 0);
   assert_eq!(result, Some(1));
 
-  let result = simulation.execute("std2", "counter", 0);
-  assert_eq!(result, Some(1));
-
   let result = simulation.execute("std", "counter", 0);
-  assert_eq!(result, Some(2));
-
-  let result = simulation.execute("std2", "counter", 0);
   assert_eq!(result, Some(2));
 
   Ok(())
