@@ -236,13 +236,6 @@ dependencies = [
 [[package]]
 name = "complogic-gates"
 version = "0.1.0"
-dependencies = [
- "complogic-types",
-]
-
-[[package]]
-name = "complogic-types"
-version = "0.1.0"
 
 [[package]]
 name = "corosensei"
