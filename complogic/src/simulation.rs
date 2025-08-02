@@ -32,11 +32,11 @@ impl Simulation {
     &self,
     module: impl AsRef<str>,
     gate: impl AsRef<str>,
-  ) -> Option<i32> {
+  ) -> Option<u32> {
     self
       .module(module.as_ref())
       .and_then(|m| m.gates.iter().position(|g| g.id == gate.as_ref()))
-      .map(|i| i as i32)
+      .map(|i| i as u32)
   }
 
   pub fn wasm(
@@ -50,8 +50,8 @@ impl Simulation {
     &mut self,
     module: impl AsRef<str>,
     gate: impl AsRef<str>,
-    inputs: i32,
-  ) -> Option<i32> {
+    inputs: u32,
+  ) -> Option<u32> {
     let gate_index = self.gate_index(module.as_ref(), gate.as_ref());
     if let Some(gate_index) = gate_index {
       if let Some((instance, store)) = self.wasm(module) {
@@ -63,11 +63,15 @@ impl Simulation {
         let result = entrypoint
           .call(
             store,
-            &[Value::I32(0), Value::I32(gate_index), Value::I32(inputs)],
+            &[
+              Value::I32(0_i32),
+              Value::I32(gate_index as i32),
+              Value::I32(inputs as i32),
+            ],
           )
           .expect("Failed to call gate function");
         if let Value::I32(result) = result[0] {
-          Some(result)
+          Some(result as u32)
         } else {
           None
         }

@@ -60,6 +60,6 @@ pub struct Gate {
   pub id: String,
   pub name: String,
   pub description: String,
-  pub inputs: i32,
-  pub outputs: i32,
+  pub inputs: u32,
+  pub outputs: u32,
 }
