@@ -1,16 +1,15 @@
 use serde::Deserialize;
+use std::cell::RefCell;
 use wasmer::Value;
 
 #[derive(Debug, Default)]
 struct Simulation {
-  store: wasmer::Store,
   modules: Vec<Module>,
 }
 
 impl Simulation {
   fn new() -> Self {
     Self {
-      store: wasmer::Store::default(),
       modules: Vec::new(),
     }
   }
@@ -21,25 +20,36 @@ impl Simulation {
 
   fn execute(
     &mut self,
+    store: &mut wasmer::Store,
     module: impl AsRef<str>,
     gate: impl AsRef<str>,
     inputs: i32,
-  ) {
+  ) -> Option<i32> {
     let gate_index = self.gate_index(module.as_ref(), gate.as_ref());
     if let Some(gate_index) = gate_index {
       if let Some(instance) = self.instance_mut(module) {
+        let instance = instance.borrow();
         let entrypoint = instance
           .exports
           .get_function("gates")
           .expect("Function 'gates' not found in module");
 
-        entrypoint
+        let result = entrypoint
           .call(
-            &mut self.store,
+            store,
             &[Value::I32(0), Value::I32(gate_index), Value::I32(inputs)],
           )
           .expect("Failed to call gate function");
+        if let Value::I32(result) = result[0] {
+          Some(result)
+        } else {
+          None
+        }
+      } else {
+        None
       }
+    } else {
+      None
     }
   }
 
@@ -77,8 +87,10 @@ impl Simulation {
   fn instance_mut(
     &mut self,
     module: impl AsRef<str>,
-  ) -> Option<&mut wasmer::Instance> {
-    self.module_mut(module.as_ref()).map(|m| m.instance_mut())
+  ) -> Option<&RefCell<wasmer::Instance>> {
+    self
+      .module_mut(module.as_ref())
+      .and_then(|m| m.instance_mut())
   }
 }
 
@@ -94,17 +106,17 @@ struct Module {
   gates: Vec<Gate>,
 
   #[serde(skip)]
-  instance: Option<wasmer::Instance>,
+  instance: Option<RefCell<wasmer::Instance>>,
 }
 
 impl Module {
   fn with_instance(mut self, instance: wasmer::Instance) -> Self {
-    self.instance = Some(instance);
+    self.instance = Some(RefCell::new(instance));
     self
   }
 
-  fn instance_mut(&mut self) -> &mut wasmer::Instance {
-    self.instance.as_mut().expect("Module instance is not set")
+  fn instance_mut(&mut self) -> Option<&RefCell<wasmer::Instance>> {
+    self.instance.as_ref()
   }
 
   fn gate(&self, id: impl AsRef<str>) -> Option<&Gate> {
@@ -139,22 +151,14 @@ fn main() -> anyhow::Result<()> {
   let mut simulation = Simulation::new();
   simulation.add_module(gates_module.with_instance(instance));
 
-  let gate_index = simulation
-    .gate_index("std", "counter")
-    .expect("Gate not found in directory");
+  let result = simulation.execute(&mut store, "std", "counter", 0);
+  assert_eq!(result, Some(1));
 
-  // let gates = instance.exports.get_function("gates")?;
-  // let result = gates.call(
-  //   &mut store,
-  //   &[Value::I32(0), Value::I32(gate_index), Value::I32(0)],
-  // )?;
-  // assert_eq!(result[0], Value::I32(1));
+  let result = simulation.execute(&mut store, "std", "counter", 0);
+  assert_eq!(result, Some(2));
 
-  // let result = gates.call(
-  //   &mut store,
-  //   &[Value::I32(0), Value::I32(gate_index), Value::I32(0)],
-  // )?;
-  // assert_eq!(result[0], Value::I32(2));
+  let result = simulation.execute(&mut store, "std", "counter", 0);
+  assert_eq!(result, Some(3));
 
   Ok(())
 }
