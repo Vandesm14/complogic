@@ -4,23 +4,26 @@ use wasmer::Value;
 use crate::module::{Gate, Module};
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct InputConnection {
-  pub gate_id: u32,
+pub struct Connection {
+  pub node_id: usize,
   pub pin_id: u32,
-  pub output_id: u32,
+  pub output_id: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct OutputConnection {
-  pub gate_id: u32,
-  pub pin_id: u32,
-  pub value: bool,
+impl Connection {
+  pub fn new(node_id: usize, pin_id: u32, output_id: usize) -> Self {
+    Self {
+      node_id,
+      pin_id,
+      output_id,
+    }
+  }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PinMap {
-  pub outputs: Vec<OutputConnection>,
-  pub inputs: Vec<InputConnection>,
+  pub outputs: Vec<Connection>,
+  pub inputs: Vec<Connection>,
 }
 
 impl PinMap {
@@ -32,12 +35,29 @@ impl PinMap {
   }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Node {
+  pub module_id: Intern<String>,
+  pub gate_id: Intern<String>,
+}
+
+impl Node {
+  pub fn new(module_id: Intern<String>, gate_id: Intern<String>) -> Self {
+    Self { module_id, gate_id }
+  }
+
+  pub fn id(&self) -> (Intern<String>, Intern<String>) {
+    (self.module_id, self.gate_id)
+  }
+}
+
 #[derive(Debug, Default)]
 pub struct Simulation {
   pub gate_count: u32,
   pub modules: Vec<Module>,
+  pub outputs: Vec<bool>,
+  pub nodes: Vec<Node>,
   pub pin_map: PinMap,
-  pub gate_map: Vec<(Intern<String>, Intern<String>, Gate)>,
 }
 
 impl Simulation {
@@ -45,8 +65,9 @@ impl Simulation {
     Self {
       gate_count: 0,
       modules: Vec::new(),
+      outputs: Vec::new(),
+      nodes: Vec::new(),
       pin_map: PinMap::new(),
-      gate_map: Vec::new(),
     }
   }
 
@@ -60,6 +81,41 @@ impl Simulation {
 
   pub fn module_mut(&mut self, id: Intern<String>) -> Option<&mut Module> {
     self.modules.iter_mut().find(|m| m.module.id == id)
+  }
+
+  pub fn add_gate(
+    &mut self,
+    module_id: Intern<String>,
+    gate_id: Intern<String>,
+  ) -> Option<u32> {
+    if let Some(gate) = self.gate(module_id, gate_id) {
+      let first_output_id = self.outputs.len();
+      let node_id = self.nodes.len();
+
+      for pin_id in 0..gate.outputs {
+        self.outputs.push(false);
+
+        self.pin_map.outputs.push(Connection::new(
+          node_id,
+          pin_id,
+          first_output_id + pin_id as usize,
+        ));
+      }
+
+      self.nodes.push(Node::new(module_id, gate_id));
+    }
+
+    None
+  }
+
+  pub fn gate(
+    &self,
+    module_id: Intern<String>,
+    gate_id: Intern<String>,
+  ) -> Option<&Gate> {
+    self
+      .module(module_id)
+      .and_then(|m| m.gates.iter().find(|g| g.id == gate_id))
   }
 
   pub fn gate_index(
@@ -114,6 +170,50 @@ impl Simulation {
       }
     } else {
       None
+    }
+  }
+
+  pub fn step(&mut self) {
+    let node_inputs = self
+      .nodes
+      .iter()
+      .enumerate()
+      .map(|(node_id, node)| {
+        (
+          node_id,
+          node.module_id,
+          node.gate_id,
+          self
+            .pin_map
+            .inputs
+            .iter()
+            .filter(|c| c.node_id == node_id)
+            .fold(0_u32, |mut pins, conn| {
+              if let Some(output) = self.outputs.get(conn.output_id) {
+                if *output {
+                  pins |= 1 << conn.pin_id;
+                }
+              }
+
+              pins
+            }),
+        )
+      })
+      .collect::<Vec<_>>();
+
+    for (node_id, module_id, gate_id, input_pins) in node_inputs.into_iter() {
+      if let Some(outputs) = self.execute(module_id, gate_id, input_pins) {
+        self
+          .pin_map
+          .outputs
+          .iter()
+          .filter(|c| c.node_id == node_id)
+          .for_each(|c| {
+            if let Some(output) = self.outputs.get_mut(c.output_id) {
+              *output = (outputs & (1 << c.pin_id)) != 0;
+            }
+          });
+      }
     }
   }
 }
