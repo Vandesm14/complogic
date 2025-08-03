@@ -24,7 +24,7 @@ pub struct Module {
 
 impl Module {
   pub fn from_file(toml_path: impl AsRef<Path>) -> Self {
-    let mut module: Module = toml::from_str(
+    let module: Module = toml::from_str(
       &std::fs::read_to_string(toml_path).expect("Failed to read module file"),
     )
     .expect("Failed to parse toml file");

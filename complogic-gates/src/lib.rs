@@ -3,7 +3,7 @@ use std::sync::Mutex;
 static COUNTER: Mutex<u32> = Mutex::new(0);
 
 #[no_mangle]
-extern "C" fn gates(id: u32, gate: u32, pins: u32) -> u32 {
+extern "C" fn gates(_id: u32, gate: u32, pins: u32) -> u32 {
   match gate {
     0 => and_gate(pins),
     1 => counter(),
