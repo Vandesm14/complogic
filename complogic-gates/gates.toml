@@ -11,15 +11,8 @@ inputs = 2
 outputs = 1
 
 [[gates]]
-id = "counter"
-name = "Counter"
-description = "A gate that increments an internal counter."
-inputs = 0
-outputs = 32
-
-[[gates]]
-id = "identity"
-name = "Identity Gate"
-description = "A gate that outputs the same value as its input."
+id = "not"
+name = "Not Gate"
+description = "A gate that performas a logical NOT operaton on one input."
 inputs = 1
 outputs = 1

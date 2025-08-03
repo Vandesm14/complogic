@@ -13,52 +13,22 @@ fn main() -> anyhow::Result<()> {
   // simulation.add_gate()
 
   let std = Intern::from_ref("std");
-  // let counter = Intern::from_ref("counter");
-  // let and = Intern::from_ref("and");
-  let identity = Intern::from_ref("identity");
+  let and = Intern::from_ref("and");
+  let not = Intern::from_ref("not");
 
-  simulation.add_gate(std, identity);
+  simulation.add_gate(std, not);
+  simulation.add_gate(std, and);
 
-  let output_id = simulation.outputs.len();
-  simulation.outputs.push(true);
-  simulation
-    .pin_map
-    .inputs
-    .push(Connection::new(0, 0, output_id));
+  simulation.pin_map.inputs.push(Connection::new(1, 0, 0));
+  simulation.pin_map.inputs.push(Connection::new(1, 1, 0));
 
   println!("{:?}", simulation.outputs);
   simulation.step();
   println!("{:?}", simulation.outputs);
   simulation.step();
   println!("{:?}", simulation.outputs);
-
-  *simulation.outputs.get_mut(output_id).unwrap() = false;
   simulation.step();
   println!("{:?}", simulation.outputs);
-
-  // let result = simulation.execute(std, counter, 0);
-  // assert_eq!(result, Some(1));
-
-  // let result = simulation.execute(std, counter, 0);
-  // assert_eq!(result, Some(2));
-
-  // let result = simulation.execute(std, and, 0b00);
-  // assert_eq!(result, Some(0));
-
-  // let result = simulation.execute(std, and, 0b01);
-  // assert_eq!(result, Some(0));
-
-  // let result = simulation.execute(std, and, 0b10);
-  // assert_eq!(result, Some(0));
-
-  // let result = simulation.execute(std, and, 0b11);
-  // assert_eq!(result, Some(1));
-
-  // let result = simulation.execute(std, identity, 0b01);
-  // assert_eq!(result, Some(1));
-
-  // let result = simulation.execute(std, identity, 0b10);
-  // assert_eq!(result, Some(2));
 
   Ok(())
 }
