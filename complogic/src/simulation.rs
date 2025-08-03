@@ -51,8 +51,6 @@ impl Node {
   }
 }
 
-const DUMMY_ID: Value = Value::I32(0_i32);
-
 #[derive(Debug, Default)]
 pub struct Simulation {
   pub gate_count: u32,
@@ -129,6 +127,7 @@ impl Simulation {
 
   pub fn execute(
     &mut self,
+    node_id: usize,
     module_id: Intern<String>,
     gate_id: Intern<String>,
     inputs: u32,
@@ -140,7 +139,10 @@ impl Simulation {
         .expect("Function 'gates' not found in module");
 
       let result = entrypoint
-        .call(store, &[DUMMY_ID, Value::I32(inputs as i32)])
+        .call(
+          store,
+          &[Value::I32(node_id as i32), Value::I32(inputs as i32)],
+        )
         .expect("Failed to call gate function");
       if let Value::I32(result) = result[0] {
         Some(result as u32)
@@ -199,7 +201,9 @@ impl Simulation {
       let input_pins = self.calculate_node_inputs(node_id);
 
       // Execute the gate and update outputs immediately
-      if let Some(outputs) = self.execute(module_id, gate_id, input_pins) {
+      if let Some(outputs) =
+        self.execute(node_id, module_id, gate_id, input_pins)
+      {
         self.update_node_outputs(node_id, outputs);
       }
     }
