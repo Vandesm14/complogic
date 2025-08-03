@@ -12,6 +12,7 @@ fn main() -> anyhow::Result<()> {
   let std = Intern::from_ref("std");
   let counter = Intern::from_ref("counter");
   let and = Intern::from_ref("and");
+  let identity = Intern::from_ref("identity");
 
   let result = simulation.execute(std, counter, 0);
   assert_eq!(result, Some(1));
@@ -30,6 +31,12 @@ fn main() -> anyhow::Result<()> {
 
   let result = simulation.execute(std, and, 0b11);
   assert_eq!(result, Some(1));
+
+  let result = simulation.execute(std, identity, 0b01);
+  assert_eq!(result, Some(1));
+
+  let result = simulation.execute(std, identity, 0b10);
+  assert_eq!(result, Some(2));
 
   Ok(())
 }

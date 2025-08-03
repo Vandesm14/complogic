@@ -7,6 +7,7 @@ extern "C" fn gates(id: u32, gate: u32, pins: u32) -> u32 {
   match gate {
     0 => and_gate(pins),
     1 => counter(),
+    2 => identity(pins),
     _ => 0, // Default case for unsupported gates
   }
 }
@@ -21,4 +22,8 @@ pub fn counter() -> u32 {
   let mut counter = COUNTER.lock().unwrap();
   *counter += 1;
   *counter
+}
+
+pub fn identity(pins: u32) -> u32 {
+  pins
 }

@@ -15,4 +15,11 @@ id = "counter"
 name = "Counter"
 description = "A gate that increments an internal counter."
 inputs = 0
-outputs = 1
+outputs = 32
+
+[[gates]]
+id = "identity"
+name = "Identity Gate"
+description = "A gate that outputs the same value as its input."
+inputs = 32
+outputs = 32
