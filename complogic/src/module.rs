@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 
+use internment::Intern;
 use serde::Deserialize;
 use wasmer::{Imports, Instance, Store};
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct ModuleConfig {
-  pub id: String,
+  pub id: Intern<String>,
   pub name: String,
   pub src: PathBuf,
 }
@@ -57,7 +58,7 @@ impl Module {
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct Gate {
-  pub id: String,
+  pub id: Intern<String>,
   pub name: String,
   pub description: String,
   pub inputs: u32,
