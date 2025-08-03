@@ -33,8 +33,14 @@ impl Module {
     let wasm_module =
       wasmer::Module::from_file(&store, module.module.src.clone())
         .expect("Failed to load module");
-    let instance = Instance::new(&mut store, &wasm_module, &Imports::new())
+    let mut instance = Instance::new(&mut store, &wasm_module, &Imports::new())
       .expect("Failed to instantiate module");
+
+    if let Ok(init) = instance.exports.get_function("init") {
+      init.call(&mut store, &[]).unwrap_or_else(|_| {
+        panic!("Failed to initialize module: {}", module.module.id)
+      });
+    }
 
     module.with_instance(instance).with_store(store)
   }
