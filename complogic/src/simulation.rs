@@ -173,46 +173,55 @@ impl Simulation {
     }
   }
 
+  fn calculate_node_inputs(&self, node_id: usize) -> u32 {
+    self
+      .pin_map
+      .inputs
+      .iter()
+      .filter(|c| c.node_id == node_id)
+      .fold(0_u32, |pins, conn| {
+        if let Some(output) = self.outputs.get(conn.output_id) {
+          if *output {
+            pins | (1 << conn.pin_id)
+          } else {
+            pins
+          }
+        } else {
+          pins
+        }
+      })
+  }
+
+  fn update_node_outputs(&mut self, node_id: usize, outputs: u32) {
+    self
+      .pin_map
+      .outputs
+      .iter()
+      .filter(|c| c.node_id == node_id)
+      .for_each(|c| {
+        if let Some(output) = self.outputs.get_mut(c.output_id) {
+          *output = (outputs & (1 << c.pin_id)) != 0;
+        }
+      });
+  }
+
   pub fn step(&mut self) {
-    let node_inputs = self
+    // First collect all the nodes we need to process to avoid borrowing issues
+    let nodes: Vec<_> = self
       .nodes
       .iter()
       .enumerate()
-      .map(|(node_id, node)| {
-        (
-          node_id,
-          node.module_id,
-          node.gate_id,
-          self
-            .pin_map
-            .inputs
-            .iter()
-            .filter(|c| c.node_id == node_id)
-            .fold(0_u32, |mut pins, conn| {
-              if let Some(output) = self.outputs.get(conn.output_id) {
-                if *output {
-                  pins |= 1 << conn.pin_id;
-                }
-              }
+      .map(|(id, node)| (id, node.module_id, node.gate_id))
+      .collect();
 
-              pins
-            }),
-        )
-      })
-      .collect::<Vec<_>>();
+    // Process each node
+    for (node_id, module_id, gate_id) in nodes {
+      // Calculate inputs for this specific node
+      let input_pins = self.calculate_node_inputs(node_id);
 
-    for (node_id, module_id, gate_id, input_pins) in node_inputs.into_iter() {
+      // Execute the gate and update outputs immediately
       if let Some(outputs) = self.execute(module_id, gate_id, input_pins) {
-        self
-          .pin_map
-          .outputs
-          .iter()
-          .filter(|c| c.node_id == node_id)
-          .for_each(|c| {
-            if let Some(output) = self.outputs.get_mut(c.output_id) {
-              *output = (outputs & (1 << c.pin_id)) != 0;
-            }
-          });
+        self.update_node_outputs(node_id, outputs);
       }
     }
   }
