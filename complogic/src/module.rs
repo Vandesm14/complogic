@@ -7,7 +7,7 @@ use wasmer::{Imports, Instance, Store};
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct ModuleConfig {
   pub id: Intern<String>,
-  pub name: String,
+  pub name: Option<String>,
   pub src: PathBuf,
 }
 
@@ -59,8 +59,8 @@ impl Module {
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct Gate {
   pub id: Intern<String>,
-  pub name: String,
-  pub description: String,
+  pub name: Option<String>,
+  pub description: Option<String>,
   pub inputs: u32,
   pub outputs: u32,
 }
