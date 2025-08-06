@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use internment::Intern;
 use serde::Deserialize;
-use wasmer::{Imports, Instance, Store};
+use wasmer::{Function, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory, Store};
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct ModuleConfig {
@@ -33,8 +33,17 @@ impl Module {
     let wasm_module =
       wasmer::Module::from_file(&store, module.module.src.clone())
         .expect("Failed to load module");
-    let instance = Instance::new(&mut store, &wasm_module, &Imports::new())
+
+    let mut imports = Imports::new();
+
+    let debug_env = FunctionEnv::new(&mut store, None);
+
+    imports.define("cl", "debug", Function::new_typed_with_env(&mut store, &debug_env, debug));
+
+    let instance = Instance::new(&mut store, &wasm_module, &imports)
       .expect("Failed to instantiate module");
+
+    *debug_env.as_mut(&mut store) = Some(instance.exports.get_memory("memory").unwrap().clone());
 
     if let Ok(init) = instance.exports.get_function("init") {
       init.call(&mut store, &[]).unwrap_or_else(|_| {
@@ -69,4 +78,18 @@ pub struct Gate {
   pub description: Option<String>,
   pub inputs: u32,
   pub outputs: u32,
+}
+
+pub type GateEnv = Option<Memory>;
+
+fn debug(mut env: FunctionEnvMut<GateEnv>, ptr: u32, len: u32) {
+  let (data, store) = env.data_and_store_mut();
+  let memory = data.as_ref().unwrap().view(&store);
+
+  let buf = memory.copy_range_to_vec(ptr as u64..ptr as u64 + len as u64).unwrap();
+
+  unsafe {
+    let slice = core::str::from_utf8_unchecked(&buf);
+    eprintln!("{slice}");
+  }
 }
